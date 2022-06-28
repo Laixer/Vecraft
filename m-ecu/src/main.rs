@@ -7,6 +7,9 @@ use panic_halt as _;
 
 use stm32h7xx_hal::time::Hertz;
 
+const PKG_NAME: &str = env!("CARGO_PKG_NAME");
+const PKG_VERSION: &str = env!("CARGO_PKG_VERSION");
+
 /// High speed external clock frequency.
 const HSE: Hertz = Hertz::MHz(25);
 /// System clock frequency.
@@ -21,27 +24,24 @@ mod app {
     use stm32h7xx_hal::gpio::{self};
     use stm32h7xx_hal::prelude::*;
     use stm32h7xx_hal::rcc;
-    use systick_monotonic::fugit::Duration;
     use systick_monotonic::Systick;
-
-    use stm32h7xx_hal::serial::Serial;
 
     /// 1000 Hz / 1 ms granularity
     #[monotonic(binds = SysTick, default = true)]
-    type MyMono = Systick<1000>;
+    type Monotonic = Systick<1000>;
 
     #[shared]
     struct SharedResources {
-        console: Serial<stm32h7xx_hal::device::UART7>,
-    }
-
-    #[local]
-    struct LocalResources {
+        console: vecraft::console::Console,
         fd_can: fdcan::FdCan<
             stm32h7xx_hal::can::Can<stm32h7xx_hal::stm32::FDCAN1>,
             fdcan::NormalOperationMode,
         >,
-        led: vecraft::Led,
+    }
+
+    #[local]
+    struct LocalResources {
+        led: vecraft::led::Led,
     }
 
     #[init]
@@ -73,16 +73,17 @@ mod app {
         let gpioe = ctx.device.GPIOE.split(ccdr.peripheral.GPIOE);
 
         // UART
-        let console = ctx
-            .device
-            .UART7
-            .serial(
-                (gpioe.pe8.into_alternate(), gpioe.pe7.into_alternate()),
-                115200.bps(),
-                ccdr.peripheral.UART7,
-                &ccdr.clocks,
-            )
-            .unwrap();
+        let console = vecraft::console::Console::new(
+            ctx.device
+                .UART7
+                .serial(
+                    (gpioe.pe8.into_alternate(), gpioe.pe7.into_alternate()),
+                    115200.bps(),
+                    ccdr.peripheral.UART7,
+                    &ccdr.clocks,
+                )
+                .unwrap(),
+        );
 
         // FDCAN
         let fdcan1 = {
@@ -131,12 +132,15 @@ mod app {
         motd::spawn().ok();
         status_led::spawn().ok();
         status_print::spawn().ok();
+        status_bus::spawn().ok();
 
         (
-            SharedResources { console },
-            LocalResources {
+            SharedResources {
+                console,
                 fd_can: fdcan1.into_normal(),
-                led: vecraft::Led::new(
+            },
+            LocalResources {
+                led: vecraft::led::Led::new(
                     gpiob.pb13.into_push_pull_output(),
                     gpiob.pb14.into_push_pull_output(),
                     gpiob.pb12.into_push_pull_output(),
@@ -151,28 +155,27 @@ mod app {
         ctx.shared.console.lock(|console| {
             use core::fmt::Write;
 
-            writeln!(console, "{}\r", "========================").unwrap();
-            writeln!(console, "{}\r", r#"   //\\  ___"#).unwrap();
-            writeln!(console, "{}\r", r#"   Y  \\/_/=|"#).unwrap();
-            writeln!(console, "{}\r", r#"  _L  ((|_L_|"#).unwrap();
-            writeln!(console, "{}\r", r#" (/\)(__(____)"#).unwrap();
-            writeln!(console, "{}\r", r#""#).unwrap();
+            writeln!(console, "========================").ok();
+            writeln!(console, r#"   //\\  ___"#).ok();
+            writeln!(console, r#"   Y  \\/_/=|"#).ok();
+            writeln!(console, r#"  _L  ((|_L_|"#).ok();
+            writeln!(console, r#" (/\)(__(____)"#).ok();
+            writeln!(console, "").ok();
 
-            writeln!(console, "Firmware: {}\r", vecraft::PKG_NAME).ok();
-            writeln!(console, "Version: {}\r", vecraft::PKG_VERSION).ok();
+            writeln!(console, "Firmware: {}", crate::PKG_NAME).ok();
+            writeln!(console, "Version: {}", crate::PKG_VERSION).ok();
 
-            writeln!(console, "{}\r", r#""#).ok();
-            writeln!(console, "{}\r", r#"« System operational »"#).ok();
-            writeln!(console, "{}\r", "========================").ok();
+            writeln!(console, "").ok();
+            writeln!(console, r#"« System operational »"#).ok();
+            writeln!(console, "========================").ok();
         });
     }
 
     #[task(local = [led])]
     fn status_led(ctx: status_led::Context) {
-        ctx.local.led.set_green(vecraft::LedState::Toggle);
-        let s1 = Duration::<u64, 1, 1000>::from_ticks(200);
+        ctx.local.led.set_green(vecraft::led::LedState::Toggle);
 
-        status_led::spawn_after(s1).unwrap();
+        status_led::spawn_after(200.millis().into()).unwrap();
     }
 
     #[task(shared = [console])]
@@ -180,23 +183,44 @@ mod app {
         ctx.shared.console.lock(|console| {
             use core::fmt::Write;
 
-            writeln!(console, "State: nominal\r").unwrap();
+            writeln!(console, "State: nominal").ok();
         });
 
-        let s1 = Duration::<u64, 1, 1000>::from_ticks(1000);
-        status_print::spawn_after(s1).unwrap();
+        status_print::spawn_after(1.secs().into()).unwrap();
     }
 
-    #[task(binds = FDCAN1_IT0, priority = 2, local = [fd_can])]
-    fn bus_event(ctx: bus_event::Context) {
+    #[task(shared = [fd_can])]
+    fn status_bus(mut ctx: status_bus::Context) {
+        ctx.shared.fd_can.lock(|fd_can| {
+            let buffer = [0xff, 0x14, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff];
+
+            let address = 0x18FF027A;
+
+            let header = fdcan::frame::TxFrameHeader {
+                len: buffer.len() as u8,
+                id: fdcan::id::ExtendedId::new(address).unwrap().into(),
+                frame_format: fdcan::frame::FrameFormat::Standard,
+                bit_rate_switching: false,
+                marker: None,
+            };
+
+            fd_can.transmit(header, &buffer).ok();
+        });
+
+        status_bus::spawn_after(1.secs().into()).unwrap();
+    }
+
+    #[task(binds = FDCAN1_IT0, priority = 2, shared = [fd_can])]
+    fn bus_event(mut ctx: bus_event::Context) {
         let mut buffer = [0; 64];
 
-        while let Ok(rx_header) = ctx.local.fd_can.receive0(&mut buffer) {
-            let _rx_header = rx_header.unwrap();
-        }
+        ctx.shared.fd_can.lock(|fd_can| {
+            while let Ok(rx_header) = fd_can.receive0(&mut buffer) {
+                let _rx_header = rx_header.unwrap();
+            }
 
-        ctx.local
-            .fd_can
-            .clear_interrupt(fdcan::interrupt::Interrupt::RxFifo0NewMsg);
+            fd_can.clear_interrupt(fdcan::interrupt::Interrupt::RxFifo0NewMsg);
+            fd_can.clear_interrupt(fdcan::interrupt::Interrupt::RxFifo0Full);
+        });
     }
 }
