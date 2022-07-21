@@ -5,8 +5,10 @@
 
 pub use j1939;
 
+pub mod can;
 pub mod console;
 pub mod led;
+pub mod lsgc;
 
 /// Trigger a full system reset.
 #[inline]
