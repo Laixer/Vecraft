@@ -19,6 +19,8 @@ const FDCAN_CLOCK: Hertz = Hertz::MHz(32);
 /// USART peripheral clock.
 const USART_CLOCK: Hertz = Hertz::MHz(48);
 
+const NET_ADDRESS: u8 = 0x6C;
+
 #[rtic::app(device = stm32h7xx_hal::stm32, peripherals = true, dispatchers = [USART1, USART2])]
 mod app {
     use stm32h7xx_hal::gpio::{self};
@@ -41,10 +43,7 @@ mod app {
     struct SharedResources {
         state: State,
         console: vecraft::console::Console,
-        fd_can: fdcan::FdCan<
-            stm32h7xx_hal::can::Can<stm32h7xx_hal::stm32::FDCAN1>,
-            fdcan::NormalOperationMode,
-        >,
+        canbus1: vecraft::can::J1939Session,
     }
 
     #[local]
@@ -94,7 +93,7 @@ mod app {
         );
 
         // FDCAN
-        let fdcan1 = {
+        let canbus1 = {
             use fdcan::config::NominalBitTiming;
             use fdcan::filter::{ExtendedFilter, ExtendedFilterSlot};
             // use stm32h7xx_hal::rcc::ResetEnable;
@@ -134,7 +133,11 @@ mod app {
             fdcan1.enable_interrupt_line(fdcan::interrupt::InterruptLine::_0, true);
             fdcan1.enable_interrupt(fdcan::interrupt::Interrupt::RxFifo0NewMsg);
             fdcan1.enable_interrupt(fdcan::interrupt::Interrupt::RxFifo0Full);
-            fdcan1
+
+            vecraft::can::J1939Session::new(
+                crate::NET_ADDRESS,
+                vecraft::can::Bus::new(fdcan1.into_normal()),
+            )
         };
 
         motd::spawn().ok();
@@ -146,7 +149,7 @@ mod app {
             SharedResources {
                 state: State::Nominal,
                 console,
-                fd_can: fdcan1.into_normal(),
+                canbus1,
             },
             LocalResources {
                 led: vecraft::led::Led::new(
@@ -173,6 +176,7 @@ mod app {
 
             writeln!(console, "Firmware: {}", crate::PKG_NAME).ok();
             writeln!(console, "Version: {}", crate::PKG_VERSION).ok();
+            writeln!(console, "Address: 0x{:X?}", crate::NET_ADDRESS).ok();
 
             writeln!(console, "").ok();
             writeln!(console, r#"« System operational »"#).ok();
@@ -264,17 +268,39 @@ mod app {
         status_bus::spawn_after(1.secs().into()).unwrap();
     }
 
-    #[task(binds = FDCAN1_IT0, priority = 2, shared = [fd_can])]
+    #[task(binds = FDCAN1_IT0, priority = 2, shared = [canbus1, state, console])]
     fn bus_event(mut ctx: bus_event::Context) {
-        let mut buffer = [0; 64];
+        let mut message = vecraft::can::J1939Message::default();
 
-        ctx.shared.fd_can.lock(|fd_can| {
-            while let Ok(rx_header) = fd_can.receive0(&mut buffer) {
-                let _rx_header = rx_header.unwrap();
-            }
-
-            fd_can.clear_interrupt(fdcan::interrupt::Interrupt::RxFifo0NewMsg);
-            fd_can.clear_interrupt(fdcan::interrupt::Interrupt::RxFifo0Full);
+        ctx.shared.canbus1.lock(|canbus1| {
+            canbus1.recv(&mut message);
         });
+
+        match message.pgn {
+            45_312 => {
+                if message.data[0] == b'Z' && message.data[1] == b'C' {
+                    if message.data[2] & 0b00000001 == 1 {
+                        ctx.shared.state.lock(|stateq| *stateq = State::Ident);
+                        ctx.shared.console.lock(|console| {
+                            use core::fmt::Write;
+
+                            writeln!(console, "Identification LED on").ok();
+                        });
+                    } else if message.data[2] & 0b00000001 == 0 {
+                        ctx.shared.state.lock(|stateq| *stateq = State::Nominal);
+                        ctx.shared.console.lock(|console| {
+                            use core::fmt::Write;
+
+                            writeln!(console, "Identification LED off").ok();
+                        });
+                    }
+
+                    if message.data[3] == 0x69 {
+                        vecraft::sys_reset();
+                    }
+                }
+            }
+            _ => {}
+        }
     }
 }
