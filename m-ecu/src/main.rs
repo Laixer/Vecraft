@@ -30,8 +30,16 @@ mod app {
     #[monotonic(binds = SysTick, default = true)]
     type Monotonic = Systick<1000>;
 
+    #[derive(PartialEq)]
+    pub enum State {
+        Nominal,
+        Ident,
+        Faulty,
+    }
+
     #[shared]
     struct SharedResources {
+        state: State,
         console: vecraft::console::Console,
         fd_can: fdcan::FdCan<
             stm32h7xx_hal::can::Can<stm32h7xx_hal::stm32::FDCAN1>,
@@ -136,6 +144,7 @@ mod app {
 
         (
             SharedResources {
+                state: State::Nominal,
                 console,
                 fd_can: fdcan1.into_normal(),
             },
@@ -171,40 +180,85 @@ mod app {
         });
     }
 
-    #[task(local = [led])]
-    fn status_led(ctx: status_led::Context) {
-        ctx.local.led.set_green(vecraft::led::LedState::Toggle);
+    #[task(shared = [state], local = [led])]
+    fn status_led(mut ctx: status_led::Context) {
+        ctx.shared.state.lock(|state| match *state {
+            State::Nominal => {
+                ctx.local.led.set_green(vecraft::led::LedState::Toggle);
+                ctx.local.led.set_blue(vecraft::led::LedState::Off);
+                ctx.local.led.set_red(vecraft::led::LedState::Off);
+            }
+            State::Ident => {
+                ctx.local.led.set_green(vecraft::led::LedState::Off);
+                ctx.local.led.set_blue(vecraft::led::LedState::Toggle);
+                ctx.local.led.set_red(vecraft::led::LedState::Off);
+            }
+            State::Faulty => {
+                ctx.local.led.set_green(vecraft::led::LedState::Off);
+                ctx.local.led.set_blue(vecraft::led::LedState::Off);
+                ctx.local.led.set_red(vecraft::led::LedState::Toggle);
+            }
+        });
 
         status_led::spawn_after(200.millis().into()).unwrap();
     }
 
-    #[task(shared = [console])]
+    #[task(shared = [console, state])]
     fn status_print(mut ctx: status_print::Context) {
         ctx.shared.console.lock(|console| {
             use core::fmt::Write;
 
-            writeln!(console, "State: nominal").ok();
+            ctx.shared.state.lock(|state| match *state {
+                State::Nominal => {
+                    writeln!(console, "State: nominal").ok();
+                }
+                State::Ident => {
+                    writeln!(console, "State: ident").ok();
+                }
+                State::Faulty => {
+                    writeln!(console, "State: faulty").ok();
+                }
+            });
         });
 
         status_print::spawn_after(1.secs().into()).unwrap();
     }
 
-    #[task(shared = [fd_can])]
+    #[task(shared = [canbus1, state])]
     fn status_bus(mut ctx: status_bus::Context) {
-        ctx.shared.fd_can.lock(|fd_can| {
-            let buffer = [0xff, 0x14, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff];
+        let state = ctx.shared.state.lock(|state| match *state {
+            State::Nominal => 0x14,
+            State::Ident => 0x16,
+            State::Faulty => 0xfa,
+        });
 
-            let address = 0x18FF027A;
+        ctx.shared.canbus1.lock(|canbus1| {
+            let major: u8 = crate::PKG_VERSION_MAJOR.parse().unwrap();
+            let minor: u8 = crate::PKG_VERSION_MINOR.parse().unwrap();
+            let patch: u8 = crate::PKG_VERSION_PATCH.parse().unwrap();
 
-            let header = fdcan::frame::TxFrameHeader {
-                len: buffer.len() as u8,
-                id: fdcan::id::ExtendedId::new(address).unwrap().into(),
-                frame_format: fdcan::frame::FrameFormat::Standard,
-                bit_rate_switching: false,
-                marker: None,
+            let last_error = 0_u16;
+            let (last_error_high, last_error_low) = if last_error > 0 {
+                (last_error.to_le_bytes()[0], last_error.to_le_bytes()[1])
+            } else {
+                (0xff, 0xff)
             };
 
-            fd_can.transmit(header, &buffer).ok();
+            let message = vecraft::can::J1939Message {
+                pgn: 65_282,
+                data: [
+                    0xff,
+                    state,
+                    major,
+                    minor,
+                    patch,
+                    0xff,
+                    last_error_high,
+                    last_error_low,
+                ],
+            };
+
+            canbus1.send(message)
         });
 
         status_bus::spawn_after(1.secs().into()).unwrap();
