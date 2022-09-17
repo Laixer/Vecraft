@@ -57,7 +57,7 @@ impl Bus {
             marker: None,
         };
 
-        self.0.transmit(header, &buffer).ok();
+        self.0.transmit(header, buffer).ok();
     }
 
     pub fn read(&mut self, buffer: &mut [u8]) -> Option<u32> {

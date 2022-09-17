@@ -35,7 +35,7 @@ mod app {
     #[monotonic(binds = SysTick, default = true)]
     type Monotonic = Systick<1000>;
 
-    #[derive(PartialEq)]
+    #[derive(PartialEq, Eq)]
     pub enum State {
         Nominal,
         Ident,
@@ -177,13 +177,13 @@ mod app {
             writeln!(console, r#"   Y  \\/_/=|"#).ok();
             writeln!(console, r#"  _L  ((|_L_|"#).ok();
             writeln!(console, r#" (/\)(__(____)"#).ok();
-            writeln!(console, "").ok();
+            writeln!(console).ok();
 
             writeln!(console, "Firmware: {}", crate::PKG_NAME).ok();
             writeln!(console, "Version: {}", crate::PKG_VERSION).ok();
             writeln!(console, "Address: 0x{:X?}", crate::NET_ADDRESS).ok();
 
-            writeln!(console, "").ok();
+            writeln!(console).ok();
             writeln!(console, r#"« System operational »"#).ok();
             writeln!(console, "========================").ok();
         });
