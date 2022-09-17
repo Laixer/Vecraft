@@ -22,7 +22,7 @@ const FDCAN_CLOCK: Hertz = Hertz::MHz(32);
 /// USART peripheral clock.
 const USART_CLOCK: Hertz = Hertz::MHz(48);
 
-const NET_ADDRESS: u8 = 0x6C;
+const NET_ADDRESS: u8 = 0x6B;
 
 #[rtic::app(device = stm32h7xx_hal::stm32, peripherals = true, dispatchers = [USART1, USART2])]
 mod app {
@@ -81,7 +81,7 @@ mod app {
         // let gpioa = ctx.device.GPIOA.split(ccdr.peripheral.GPIOA);
         let gpiob = ctx.device.GPIOB.split(ccdr.peripheral.GPIOB);
         let gpiod = ctx.device.GPIOD.split(ccdr.peripheral.GPIOD);
-        let gpioc = ctx.device.GPIOC.split(ccdr.peripheral.GPIOC);
+        // let gpioc = ctx.device.GPIOC.split(ccdr.peripheral.GPIOC);
         // let gpioe = ctx.device.GPIOE.split(ccdr.peripheral.GPIOE);
 
         // UART
