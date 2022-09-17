@@ -82,11 +82,11 @@ mod app {
         // UART
         let console = vecraft::console::Console::new(
             ctx.device
-                .UART7
+                .USART2
                 .serial(
-                    (gpioe.pe8.into_alternate(), gpioe.pe7.into_alternate()),
+                    (gpiod.pd5.into_alternate(), gpiod.pd6.into_alternate()),
                     115200.bps(),
-                    ccdr.peripheral.UART7,
+                    ccdr.peripheral.USART2,
                     &ccdr.clocks,
                 )
                 .unwrap(),

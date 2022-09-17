@@ -3,10 +3,10 @@ use core::fmt;
 use stm32h7xx_hal::hal::serial::Write;
 use stm32h7xx_hal::serial::Serial;
 
-pub struct Console(Serial<stm32h7xx_hal::device::UART7>);
+pub struct Console(Serial<stm32h7xx_hal::device::USART2>);
 
 impl Console {
-    pub fn new(serial: Serial<stm32h7xx_hal::device::UART7>) -> Self {
+    pub fn new(serial: Serial<stm32h7xx_hal::device::USART2>) -> Self {
         Self(serial)
     }
 }
