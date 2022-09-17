@@ -9,6 +9,9 @@ use stm32h7xx_hal::time::Hertz;
 
 const PKG_NAME: &str = env!("CARGO_PKG_NAME");
 const PKG_VERSION: &str = env!("CARGO_PKG_VERSION");
+const PKG_VERSION_MAJOR: &str = env!("CARGO_PKG_VERSION_MAJOR");
+const PKG_VERSION_MINOR: &str = env!("CARGO_PKG_VERSION_MINOR");
+const PKG_VERSION_PATCH: &str = env!("CARGO_PKG_VERSION_PATCH");
 
 /// High speed external clock frequency.
 const HSE: Hertz = Hertz::MHz(25);
@@ -75,9 +78,11 @@ mod app {
             .kernel_usart234578_clk_mux(rcc::rec::Usart234578ClkSel::PLL3_Q);
 
         // GPIO
+        // let gpioa = ctx.device.GPIOA.split(ccdr.peripheral.GPIOA);
         let gpiob = ctx.device.GPIOB.split(ccdr.peripheral.GPIOB);
         let gpiod = ctx.device.GPIOD.split(ccdr.peripheral.GPIOD);
-        let gpioe = ctx.device.GPIOE.split(ccdr.peripheral.GPIOE);
+        let gpioc = ctx.device.GPIOC.split(ccdr.peripheral.GPIOC);
+        // let gpioe = ctx.device.GPIOE.split(ccdr.peripheral.GPIOE);
 
         // UART
         let console = vecraft::console::Console::new(
