@@ -26,22 +26,20 @@ MEMORY
   ITCM  : ORIGIN = 0x00000000, LENGTH = 64K
 }
 
-/* The location of the stack can be overridden using the
-   `_stack_start` symbol.  Place the stack at the end of RAM */
-_stack_start = ORIGIN(RAM) + LENGTH(RAM);
-
-/* The location of the .text section can be overridden using the
-   `_stext` symbol.  By default it will place after .vector_table */
-/* _stext = ORIGIN(FLASH) + 0x40c; */
-
 /* These sections are used for some of the examples */
 SECTIONS {
   .axisram (NOLOAD) : ALIGN(8) {
     *(.axisram .axisram.*);
     . = ALIGN(8);
     } > AXISRAM
-  /* The SRAM1 and SRAM2 section are commonly used as the stack and heap for the
-     CM4 core in dualcore versions and should thus not be used in examples*/
+  .sram1 (NOLOAD) : ALIGN(4) {
+    *(.sram1 .sram1.*);
+    . = ALIGN(4);
+    } > SRAM1
+  .sram2 (NOLOAD) : ALIGN(4) {
+    *(.sram2 .sram2.*);
+    . = ALIGN(4);
+    } > SRAM2
   .sram3 (NOLOAD) : ALIGN(4) {
     *(.sram3 .sram3.*);
     . = ALIGN(4);
