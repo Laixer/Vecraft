@@ -18,6 +18,27 @@ pub struct Led {
     red: PinLedRed,
 }
 
+pub struct Color {
+    red: bool,
+    green: bool,
+    blue: bool,
+}
+
+impl Color {
+    pub const fn new(red: bool, green: bool, blue: bool) -> Self {
+        Self { red, green, blue }
+    }
+}
+
+/// Predefined color orange.
+pub const ORANGE: Color = Color::new(true, true, false);
+/// Predefined color red.
+pub const RED: Color = Color::new(true, false, false);
+/// Predefined color green.
+pub const GREEN: Color = Color::new(false, true, false);
+/// Predefined color blue.
+pub const BLUE: Color = Color::new(false, false, true);
+
 impl Led {
     pub fn new(green: PinLedGreen, blue: PinLedBlue, red: PinLedRed) -> Self {
         let mut led_self = Self { green, blue, red };
