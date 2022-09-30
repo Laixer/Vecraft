@@ -22,36 +22,44 @@ const FDCAN_CLOCK: Hertz = Hertz::MHz(32);
 /// USART peripheral clock.
 const USART_CLOCK: Hertz = Hertz::MHz(48);
 
-const NET_ADDRESS: u8 = 0x6B;
+const NET_ADDRESS: u8 = 0x6A;
 
 #[rtic::app(device = stm32h7xx_hal::stm32, peripherals = true, dispatchers = [USART1, USART2])]
 mod app {
     use stm32h7xx_hal::gpio::{self};
     use stm32h7xx_hal::prelude::*;
     use stm32h7xx_hal::rcc;
+    use stm32h7xx_hal::watchdog::SystemWindowWatchdog;
     use systick_monotonic::Systick;
 
-    /// 1000 Hz / 1 ms granularity
+    /// 100 Hz / 10 ms granularity
     #[monotonic(binds = SysTick, default = true)]
-    type Monotonic = Systick<1000>;
-
-    #[derive(PartialEq, Eq)]
-    pub enum State {
-        Nominal,
-        Ident,
-        Faulty,
-    }
+    type Monotonic = Systick<100>;
 
     #[shared]
     struct SharedResources {
-        state: State,
+        state: vecraft::state::System,
         console: vecraft::console::Console,
-        canbus1: vecraft::can::J1939Session,
+        canbus1: vecraft::can::Can<
+            stm32h7xx_hal::can::Can<stm32h7xx_hal::stm32::FDCAN1>,
+            fdcan::NormalOperationMode,
+        >,
     }
 
     #[local]
     struct LocalResources {
+        adc1: stm32h7xx_hal::adc::Adc<stm32h7xx_hal::stm32::ADC1, stm32h7xx_hal::adc::Enabled>,
+        channel1: gpio::PC2<gpio::Analog>,
         led: vecraft::led::Led,
+        watchdog: SystemWindowWatchdog,
+    }
+
+    struct Kaas {}
+
+    impl stm32h7xx_hal::hal::blocking::delay::DelayUs<u8> for Kaas {
+        fn delay_us(&mut self, _us: u8) {
+            //
+        }
     }
 
     #[init]
@@ -74,14 +82,19 @@ mod app {
             .pll3_q_ck(crate::USART_CLOCK)
             .freeze(pwrcfg, &ctx.device.SYSCFG);
 
+        // Switch adc_ker_ck_input multiplexer to per_ck
+        ccdr.peripheral.kernel_adc_clk_mux(rcc::rec::AdcClkSel::PER);
+
         ccdr.peripheral
             .kernel_usart234578_clk_mux(rcc::rec::Usart234578ClkSel::PLL3_Q);
+
+        let mut watchdog = SystemWindowWatchdog::new(ctx.device.WWDG, &ccdr);
 
         // GPIO
         // let gpioa = ctx.device.GPIOA.split(ccdr.peripheral.GPIOA);
         let gpiob = ctx.device.GPIOB.split(ccdr.peripheral.GPIOB);
         let gpiod = ctx.device.GPIOD.split(ccdr.peripheral.GPIOD);
-        // let gpioc = ctx.device.GPIOC.split(ccdr.peripheral.GPIOC);
+        let gpioc = ctx.device.GPIOC.split(ccdr.peripheral.GPIOC);
         // let gpioe = ctx.device.GPIOE.split(ccdr.peripheral.GPIOE);
 
         // UART
@@ -97,215 +110,212 @@ mod app {
                 .unwrap(),
         );
 
-        // FDCAN
+        let fdcan_prec = ccdr
+            .peripheral
+            .FDCAN
+            .kernel_clk_mux(rcc::rec::FdcanClkSel::PLL1_Q);
+
         let canbus1 = {
-            use fdcan::config::NominalBitTiming;
-            use fdcan::filter::{ExtendedFilter, ExtendedFilterSlot};
-            // use stm32h7xx_hal::rcc::ResetEnable;
+            let rx = gpiod.pd0.into_alternate().speed(gpio::Speed::VeryHigh);
+            let tx = gpiod.pd1.into_alternate().speed(gpio::Speed::VeryHigh);
 
-            let fdcan_prec = ccdr
-                .peripheral
-                .FDCAN
-                .kernel_clk_mux(stm32h7xx_hal::rcc::rec::FdcanClkSel::PLL1_Q);
+            let pd3 = gpiod.pd3.into_push_pull_output();
 
-            let mut pd3 = gpiod.pd3.into_push_pull_output();
-            pd3.set_low();
-            let mut pd7 = gpiod.pd7.into_push_pull_output();
-            pd7.set_low();
-
-            let mut fdcan1 = {
-                let rx = gpiod.pd0.into_alternate().speed(gpio::Speed::VeryHigh);
-                let tx = gpiod.pd1.into_alternate().speed(gpio::Speed::VeryHigh);
-
-                ctx.device.FDCAN1.fdcan(tx, rx, fdcan_prec)
-            };
-
-            use core::num::{NonZeroU16, NonZeroU8};
-
-            fdcan1.set_protocol_exception_handling(false);
-            fdcan1.set_nominal_bit_timing(NominalBitTiming {
-                prescaler: NonZeroU16::new(8).unwrap(),
-                seg1: NonZeroU8::new(13).unwrap(),
-                seg2: NonZeroU8::new(2).unwrap(),
-                sync_jump_width: NonZeroU8::new(1).unwrap(),
-            });
-
-            fdcan1.set_extended_filter(
-                ExtendedFilterSlot::_0,
-                ExtendedFilter::accept_all_into_fifo0(),
-            );
-
-            fdcan1.enable_interrupt_line(fdcan::interrupt::InterruptLine::_0, true);
-            fdcan1.enable_interrupt(fdcan::interrupt::Interrupt::RxFifo0NewMsg);
-            fdcan1.enable_interrupt(fdcan::interrupt::Interrupt::RxFifo0Full);
-
-            vecraft::can::J1939Session::new(
-                crate::NET_ADDRESS,
-                vecraft::can::Bus::new(fdcan1.into_normal()),
-            )
+            vecraft::can::CanBuilder::new(ctx.device.FDCAN1.fdcan(tx, rx, fdcan_prec), pd3)
+                .set_bit_timing(vecraft::can::BITRATE_250K)
+                .set_net_address_filter(crate::NET_ADDRESS)
+                .build()
         };
 
+        let mut k = Kaas {};
+
+        // ADC
+        use stm32h7xx_hal::adc::{Adc, AdcSampleTime, Resolution};
+
+        let mut adc1 =
+            Adc::adc1(ctx.device.ADC1, &mut k, ccdr.peripheral.ADC12, &ccdr.clocks).enable();
+
+        adc1.set_resolution(Resolution::TENBIT);
+        adc1.set_sample_time(AdcSampleTime::T_387);
+
+        let channel1 = gpioc.pc2.into_analog();
+
         motd::spawn().ok();
-        status_led::spawn().ok();
+        firmware_state::spawn().ok();
         status_print::spawn().ok();
-        status_bus::spawn().ok();
+
+        adc_print::spawn().ok();
+
+        watchdog.start(75.millis());
 
         (
             SharedResources {
-                state: State::Nominal,
+                state: vecraft::state::System::with_boot(),
                 console,
                 canbus1,
             },
             LocalResources {
+                adc1,
+                channel1,
                 led: vecraft::led::Led::new(
                     gpiob.pb13.into_push_pull_output(),
                     gpiob.pb14.into_push_pull_output(),
                     gpiob.pb12.into_push_pull_output(),
                 ),
+                watchdog,
             },
             init::Monotonics(mono),
         )
     }
 
-    #[task(shared = [console])]
+    #[task(shared = [state, console])]
     fn motd(mut ctx: motd::Context) {
         ctx.shared.console.lock(|console| {
             use core::fmt::Write;
 
-            writeln!(console, "========================").ok();
-            writeln!(console, r#"   //\\  ___"#).ok();
-            writeln!(console, r#"   Y  \\/_/=|"#).ok();
-            writeln!(console, r#"  _L  ((|_L_|"#).ok();
-            writeln!(console, r#" (/\)(__(____)"#).ok();
+            writeln!(console, "==========================").ok();
+            writeln!(console, r#"       //\\  ___"#).ok();
+            writeln!(console, r#"       Y  \\/_/=|"#).ok();
+            writeln!(console, r#"      _L  ((|_L_|"#).ok();
+            writeln!(console, r#"     (/\)(__(____)"#).ok();
             writeln!(console).ok();
-
-            writeln!(console, "Firmware: {}", crate::PKG_NAME).ok();
-            writeln!(console, "Version: {}", crate::PKG_VERSION).ok();
-            writeln!(console, "Address: 0x{:X?}", crate::NET_ADDRESS).ok();
-
+            writeln!(console, "    Firmware : {}", crate::PKG_NAME).ok();
+            writeln!(console, "    Version  : {}", crate::PKG_VERSION).ok();
+            writeln!(console, "    Address  : 0x{:X?}", crate::NET_ADDRESS).ok();
             writeln!(console).ok();
-            writeln!(console, r#"« System operational »"#).ok();
-            writeln!(console, "========================").ok();
-        });
-    }
-
-    #[task(shared = [state], local = [led])]
-    fn status_led(mut ctx: status_led::Context) {
-        ctx.shared.state.lock(|state| match *state {
-            State::Nominal => {
-                ctx.local.led.set_green(vecraft::led::LedState::Toggle);
-                ctx.local.led.set_blue(vecraft::led::LedState::Off);
-                ctx.local.led.set_red(vecraft::led::LedState::Off);
-            }
-            State::Ident => {
-                ctx.local.led.set_green(vecraft::led::LedState::Off);
-                ctx.local.led.set_blue(vecraft::led::LedState::Toggle);
-                ctx.local.led.set_red(vecraft::led::LedState::Off);
-            }
-            State::Faulty => {
-                ctx.local.led.set_green(vecraft::led::LedState::Off);
-                ctx.local.led.set_blue(vecraft::led::LedState::Off);
-                ctx.local.led.set_red(vecraft::led::LedState::Toggle);
-            }
+            writeln!(console, "  Laixer Equipment B.V.").ok();
+            writeln!(console, "   Copyright (C) 2022").ok();
+            writeln!(console, "==========================").ok();
         });
 
-        status_led::spawn_after(200.millis().into()).unwrap();
+        ctx.shared.state.lock(|state| state.boot_complete());
     }
 
-    #[task(shared = [console, state])]
-    fn status_print(mut ctx: status_print::Context) {
+    #[task(shared = [canbus1, console], local = [adc1, channel1])]
+    fn adc_print(mut ctx: adc_print::Context) {
+        let data: u32 = ctx.local.adc1.read(ctx.local.channel1).unwrap();
+
         ctx.shared.console.lock(|console| {
             use core::fmt::Write;
 
-            ctx.shared.state.lock(|state| match *state {
-                State::Nominal => {
-                    writeln!(console, "State: nominal").ok();
-                }
-                State::Ident => {
-                    writeln!(console, "State: ident").ok();
-                }
-                State::Faulty => {
-                    writeln!(console, "State: faulty").ok();
-                }
-            });
+            writeln!(console, "ADC Channel 1: {}", data).ok();
         });
+
+        let id = vecraft::j1939::IdBuilder::from_pgn(64_258)
+            .sa(crate::NET_ADDRESS)
+            .build();
+
+        let frame = vecraft::j1939::FrameBuilder::new(id)
+            .copy_from_slice(&data.to_le_bytes()[..4])
+            .build();
+
+        ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
+
+        adc_print::spawn_after(50.millis().into()).unwrap();
+    }
+
+    #[task(shared = [state, canbus1], local = [led, watchdog])]
+    fn firmware_state(mut ctx: firmware_state::Context) {
+        let is_bus_ok = ctx.shared.canbus1.lock(|canbus1| canbus1.is_bus_ok());
+
+        let state = ctx.shared.state.lock(|state| {
+            if is_bus_ok {
+                state.set_bus_error(false);
+            }
+
+            state.state()
+        });
+
+        ctx.local
+            .led
+            .set_color(&state.as_led(), &vecraft::led::LedState::Toggle);
+
+        if state.is_running() {
+            ctx.local.watchdog.feed();
+        }
+
+        firmware_state::spawn_after(50.millis().into()).unwrap();
+    }
+
+    #[task(shared = [state, canbus1, console], local = [])]
+    fn status_print(mut ctx: status_print::Context) {
+        let uptime = monotonics::now().duration_since_epoch();
+
+        let seconds = uptime.to_secs() % 60;
+        let minutes = uptime.to_minutes() % 60;
+        let hours = uptime.to_hours() % 24;
+
+        let state = ctx.shared.state.lock(|state| state.state());
+
+        ctx.shared.console.lock(|console| {
+            use core::fmt::Write;
+
+            writeln!(
+                console,
+                "[{:02}:{:02}:{:02}] State: {}",
+                hours, minutes, seconds, state
+            )
+            .ok();
+        });
+
+        let major: u8 = crate::PKG_VERSION_MAJOR.parse().unwrap();
+        let minor: u8 = crate::PKG_VERSION_MINOR.parse().unwrap();
+        let patch: u8 = crate::PKG_VERSION_PATCH.parse().unwrap();
+
+        let last_error = 0_u16;
+        let (last_error_high, last_error_low) = if last_error > 0 {
+            (last_error.to_le_bytes()[0], last_error.to_le_bytes()[1])
+        } else {
+            (0xff, 0xff)
+        };
+
+        let id = vecraft::j1939::IdBuilder::from_pgn(65_282)
+            .sa(crate::NET_ADDRESS)
+            .build();
+
+        let frame = vecraft::j1939::FrameBuilder::new(id)
+            .copy_from_slice(&[
+                0xff,
+                state.as_byte(),
+                major,
+                minor,
+                patch,
+                0xff,
+                last_error_high,
+                last_error_low,
+            ])
+            .build();
+
+        ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
 
         status_print::spawn_after(1.secs().into()).unwrap();
     }
 
-    #[task(shared = [canbus1, state])]
-    fn status_bus(mut ctx: status_bus::Context) {
-        let state = ctx.shared.state.lock(|state| match *state {
-            State::Nominal => 0x14,
-            State::Ident => 0x16,
-            State::Faulty => 0xfa,
-        });
+    #[task(binds = FDCAN1_IT0, priority = 2, shared = [state, canbus1])]
+    fn can1_event(mut ctx: can1_event::Context) {
+        let is_bus_error = ctx.shared.canbus1.lock(|canbus1| canbus1.is_bus_error());
 
-        ctx.shared.canbus1.lock(|canbus1| {
-            let major: u8 = crate::PKG_VERSION_MAJOR.parse().unwrap();
-            let minor: u8 = crate::PKG_VERSION_MINOR.parse().unwrap();
-            let patch: u8 = crate::PKG_VERSION_PATCH.parse().unwrap();
+        if is_bus_error {
+            ctx.shared.state.lock(|state| state.set_bus_error(true));
+        }
 
-            let last_error = 0_u16;
-            let (last_error_high, last_error_low) = if last_error > 0 {
-                (last_error.to_le_bytes()[0], last_error.to_le_bytes()[1])
-            } else {
-                (0xff, 0xff)
-            };
+        if let Some(frame) = ctx.shared.canbus1.lock(|canbus1| canbus1.recv()) {
+            match frame.id().pgn() {
+                45_312 => {
+                    if frame.pdu()[0] == b'Z' && frame.pdu()[1] == b'C' {
+                        if frame.pdu()[2] & 0b00000001 == 1 {
+                            ctx.shared.state.lock(|state| state.set_ident(true));
+                        } else if frame.pdu()[2] & 0b00000001 == 0 {
+                            ctx.shared.state.lock(|state| state.set_ident(false));
+                        }
 
-            let message = vecraft::can::J1939Message {
-                pgn: 65_282,
-                data: [
-                    0xff,
-                    state,
-                    major,
-                    minor,
-                    patch,
-                    0xff,
-                    last_error_high,
-                    last_error_low,
-                ],
-            };
-
-            canbus1.send(message)
-        });
-
-        status_bus::spawn_after(1.secs().into()).unwrap();
-    }
-
-    #[task(binds = FDCAN1_IT0, priority = 2, shared = [canbus1, state, console])]
-    fn bus_event(mut ctx: bus_event::Context) {
-        let mut message = vecraft::can::J1939Message::default();
-
-        ctx.shared.canbus1.lock(|canbus1| {
-            canbus1.recv(&mut message);
-        });
-
-        match message.pgn {
-            45_312 => {
-                if message.data[0] == b'Z' && message.data[1] == b'C' {
-                    if message.data[2] & 0b00000001 == 1 {
-                        ctx.shared.state.lock(|stateq| *stateq = State::Ident);
-                        ctx.shared.console.lock(|console| {
-                            use core::fmt::Write;
-
-                            writeln!(console, "Identification LED on").ok();
-                        });
-                    } else if message.data[2] & 0b00000001 == 0 {
-                        ctx.shared.state.lock(|stateq| *stateq = State::Nominal);
-                        ctx.shared.console.lock(|console| {
-                            use core::fmt::Write;
-
-                            writeln!(console, "Identification LED off").ok();
-                        });
-                    }
-
-                    if message.data[3] == 0x69 {
-                        vecraft::sys_reset();
+                        if frame.pdu()[3] == 0x69 {
+                            vecraft::sys_reset();
+                        }
                     }
                 }
+                _ => {}
             }
-            _ => {}
         }
     }
 }

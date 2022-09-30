@@ -106,11 +106,11 @@ mod app {
             .FDCAN
             .kernel_clk_mux(rcc::rec::FdcanClkSel::PLL1_Q);
 
-        let pd3 = gpiod.pd3.into_push_pull_output();
-
         let canbus1 = {
             let rx = gpiod.pd0.into_alternate().speed(gpio::Speed::VeryHigh);
             let tx = gpiod.pd1.into_alternate().speed(gpio::Speed::VeryHigh);
+
+            let pd3 = gpiod.pd3.into_push_pull_output();
 
             vecraft::can::CanBuilder::new(ctx.device.FDCAN1.fdcan(tx, rx, fdcan_prec), pd3)
                 .set_bit_timing(vecraft::can::BITRATE_250K)
