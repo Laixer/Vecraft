@@ -1,4 +1,3 @@
-
 use stm32h7xx_hal::gpio::gpiob::{PB12, PB13, PB14};
 use stm32h7xx_hal::gpio::{Output, PushPull};
 
@@ -42,13 +41,31 @@ pub const BLUE: Color = Color::new(false, false, true);
 impl Led {
     pub fn new(green: PinLedGreen, blue: PinLedBlue, red: PinLedRed) -> Self {
         let mut led_self = Self { green, blue, red };
-        led_self.set_green(LedState::Off);
-        led_self.set_blue(LedState::Off);
-        led_self.set_red(LedState::Off);
+        led_self.set_green(&LedState::Off);
+        led_self.set_blue(&LedState::Off);
+        led_self.set_red(&LedState::Off);
         led_self
     }
 
-    pub fn set_green(&mut self, state: LedState) {
+    pub fn set_color(&mut self, color: &Color, state: &LedState) {
+        if color.red {
+            self.set_red(state)
+        } else {
+            self.set_red(&LedState::Off)
+        }
+        if color.green {
+            self.set_green(state)
+        } else {
+            self.set_green(&LedState::Off)
+        }
+        if color.blue {
+            self.set_blue(state)
+        } else {
+            self.set_blue(&LedState::Off)
+        }
+    }
+
+    pub fn set_green(&mut self, state: &LedState) {
         match state {
             LedState::On => self.green.set_low(),
             LedState::Off => self.green.set_high(),
@@ -56,7 +73,7 @@ impl Led {
         }
     }
 
-    pub fn set_blue(&mut self, state: LedState) {
+    pub fn set_blue(&mut self, state: &LedState) {
         match state {
             LedState::On => self.blue.set_low(),
             LedState::Off => self.blue.set_high(),
@@ -64,7 +81,7 @@ impl Led {
         }
     }
 
-    pub fn set_red(&mut self, state: LedState) {
+    pub fn set_red(&mut self, state: &LedState) {
         match state {
             LedState::On => self.red.set_low(),
             LedState::Off => self.red.set_high(),
