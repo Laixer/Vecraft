@@ -1,4 +1,4 @@
-#![deny(unsafe_code)]
+// #![deny(unsafe_code)]
 #![deny(warnings)]
 #![no_main]
 #![no_std]
@@ -9,6 +9,7 @@ pub mod can;
 pub mod console;
 pub mod led;
 pub mod lsgc;
+pub mod state;
 pub mod usb_avic;
 pub mod usb_frame;
 
