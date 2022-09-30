@@ -1,51 +1,67 @@
 pub type FdCan1 =
     fdcan::FdCan<stm32h7xx_hal::can::Can<stm32h7xx_hal::stm32::FDCAN1>, fdcan::NormalOperationMode>;
+pub type FdCan2 =
+    fdcan::FdCan<stm32h7xx_hal::can::Can<stm32h7xx_hal::stm32::FDCAN2>, fdcan::NormalOperationMode>;
 
-pub struct J1939Message {
-    pub pgn: u16,
-    pub data: [u8; 8],
-}
+pub struct Bus<I: fdcan::Instance, M>(fdcan::FdCan<I, M>);
 
-impl Default for J1939Message {
-    fn default() -> Self {
-        Self {
-            pgn: Default::default(),
-            data: [0xff; 8],
-        }
-    }
-}
-
-pub struct J1939Session {
-    bus: Bus,
-    address: u8,
-}
-
-impl J1939Session {
-    pub fn new(address: u8, bus: Bus) -> Self {
-        Self { address, bus }
-    }
-
-    pub fn send(&mut self, message: J1939Message) {
-        let id = j1939::IdBuilder::from_pgn(message.pgn)
-            .sa(self.address)
-            .build();
-
-        self.bus.write(id.as_raw(), &message.data)
-    }
-
-    pub fn recv(&mut self, message: &mut J1939Message) {
-        if let Some(id) = self.bus.read(&mut message.data) {
-            let id = j1939::Id::new(id);
-            message.pgn = id.pgn()
-        }
-    }
-}
-
-pub struct Bus(FdCan1);
-
-impl Bus {
-    pub fn new(interface: FdCan1) -> Self {
+impl<I, M> Bus<I, M>
+where
+    I: fdcan::Instance,
+    M: fdcan::Transmit + fdcan::Receive,
+{
+    pub fn new(interface: fdcan::FdCan<I, M>) -> Self {
         Self(interface)
+    }
+
+    pub fn error(&self) -> fdcan::ErrorCounters {
+        self.0.error_counters()
+    }
+
+    pub fn get_protocol_status(&self) -> fdcan::ProtocolStatus {
+        self.0.get_protocol_status()
+    }
+
+    pub fn is_bus_error(&mut self) -> bool {
+        let bus_error = self
+            .0
+            .has_interrupt(fdcan::interrupt::Interrupt::ErrPassive)
+            || self.0.has_interrupt(fdcan::interrupt::Interrupt::BusOff);
+
+        self.0
+            .clear_interrupt(fdcan::interrupt::Interrupt::ErrPassive);
+        self.0.clear_interrupt(fdcan::interrupt::Interrupt::BusOff);
+
+        bus_error
+    }
+
+    pub fn is_bus_ok(&mut self) -> bool {
+        let protocol_status = self.0.get_protocol_status();
+
+        !protocol_status.bus_off_status
+            && !protocol_status.error_passive_state
+            && !protocol_status.error_warning
+    }
+
+    pub fn send(&mut self, frame: j1939::Frame) {
+        self.write(frame.id().as_raw(), frame.pdu())
+    }
+
+    pub fn recv(&mut self) -> Option<j1939::Frame> {
+        if self
+            .0
+            .has_interrupt(fdcan::interrupt::Interrupt::RxFifo0NewMsg)
+        {
+            let mut builder = j1939::FrameBuilder::default();
+
+            if let Some(id) = self.read(builder.as_mut()) {
+                builder = builder.id(j1939::Id::new(id));
+            }
+
+            Some(builder.build())
+        } else {
+            None
+        }
     }
 
     pub fn write(&mut self, address: u32, buffer: &[u8]) {
@@ -58,6 +74,15 @@ impl Bus {
         };
 
         self.0.transmit(header, buffer).ok();
+    }
+
+    pub fn inner(&mut self) -> &mut fdcan::FdCan<I, M> {
+        &mut self.0
+    }
+
+    pub fn has_new_message(&mut self) -> bool {
+        self.0
+            .has_interrupt(fdcan::interrupt::Interrupt::RxFifo0NewMsg)
     }
 
     pub fn read(&mut self, buffer: &mut [u8]) -> Option<u32> {
@@ -74,8 +99,6 @@ impl Bus {
 
         self.0
             .clear_interrupt(fdcan::interrupt::Interrupt::RxFifo0NewMsg);
-        self.0
-            .clear_interrupt(fdcan::interrupt::Interrupt::RxFifo0Full);
 
         id
     }
