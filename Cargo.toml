@@ -1,6 +1,9 @@
 [workspace]
 members = [
+  "hcu",
   "m-ecu",
+  "mt-ecu",
+  "v-ecu",
   "vecraft"
 ]
 

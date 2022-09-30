@@ -1,0 +1,18 @@
+[package]
+name = "v-ecu"
+version = "0.1.12"
+edition = "2021"
+
+[dependencies]
+panic-halt = "0.2.0"
+systick-monotonic = "1.0.0"
+cortex-m-rtic = { version = "1.1.3" }
+stm32h7xx-hal = { version = "0.12.2", features = ["stm32h743v", "rt", "can", "usb_hs"] }
+fdcan = { version = "0.1.0", features = ["fdcan_h7"] }
+vecraft = { version = "0.1.0", path = "../vecraft" }
+usb-device = "0.2.9"
+
+[[bin]]
+name = "v-ecu"
+test = false
+bench = false

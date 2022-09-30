@@ -4,9 +4,9 @@ version = 3
 
 [[package]]
 name = "aho-corasick"
-version = "0.7.18"
+version = "0.7.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e37cfd5e7657ada45f742d6e99ca5788580b5c529dc78faf11ece6dc702656f"
+checksum = "b4f55bd91a0978cbfd91c457a164bab8b4001c833b7f323132c0a4e1922dd44e"
 dependencies = [
  "memchr",
 ]
@@ -170,9 +170,9 @@ dependencies = [
 
 [[package]]
 name = "fdcan"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ed34c03e21f64badabd4ec31926367217c9c2708e0e7119386c9a308d3ee05bb"
+checksum = "e5c0c327e4fb2d35445b850b4890bb5a1f14e78be0e1fd4ab3c5fa895819c465"
 dependencies = [
  "bitflags",
  "nb 1.0.0",
@@ -216,7 +216,7 @@ checksum = "8a9ee70c43aaf417c914396645a0fa852624801b24ebb7ae78fe8272889ac888"
 
 [[package]]
 name = "hcu"
-version = "0.2.5"
+version = "0.3.1"
 dependencies = [
  "cortex-m-rtic",
  "fdcan",
@@ -251,8 +251,8 @@ dependencies = [
 
 [[package]]
 name = "j1939"
-version = "0.1.0"
-source = "git+https://github.com/Laixer/J1939#b304b4c9833c68ec3029a2421c2364b729176168"
+version = "0.1.4"
+source = "git+https://github.com/Laixer/J1939#d6abe389698f16f30ba35f46ba0273c58bbed10a"
 
 [[package]]
 name = "lazy_static"
@@ -262,9 +262,9 @@ checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 
 [[package]]
 name = "lock_api"
-version = "0.4.8"
+version = "0.4.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9f80bf5aacaf25cbfc8210d1cfb718f2bf3b11c4c54e5afe36c236853a8ec390"
+checksum = "435011366fe56583b16cf956f9df0095b405b82d76425bc8981c0e22e60ec4df"
 dependencies = [
  "autocfg",
  "scopeguard",
@@ -272,7 +272,7 @@ dependencies = [
 
 [[package]]
 name = "m-ecu"
-version = "0.4.2"
+version = "0.6.1"
 dependencies = [
  "cortex-m-rtic",
  "fdcan",
@@ -287,6 +287,18 @@ name = "memchr"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2dffe52ecf27772e601905b7522cb4ef790d2cc203488bbd0e2fe85fcb74566d"
+
+[[package]]
+name = "mt-ecu"
+version = "0.1.5"
+dependencies = [
+ "cortex-m-rtic",
+ "fdcan",
+ "panic-halt",
+ "stm32h7xx-hal",
+ "systick-monotonic",
+ "vecraft",
+]
 
 [[package]]
 name = "nb"
@@ -311,9 +323,9 @@ checksum = "de96540e0ebde571dc55c73d60ef407c653844e6f9a1e2fdbd40c07b9252d812"
 
 [[package]]
 name = "paste"
-version = "1.0.8"
+version = "1.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9423e2b32f7a043629287a536f21951e8c6a82482d0acb1eeebfc90bc2225b22"
+checksum = "b1de2e551fb905ac83f73f7aedf2f0cb4a0da7e35efa24a202a936269f1f18e1"
 
 [[package]]
 name = "proc-macro-error"
@@ -341,9 +353,9 @@ dependencies = [
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.43"
+version = "1.0.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0a2ca2c61bc9f3d74d2886294ab7b9853abd9c1ad903a3ac7815c58989bb7bab"
+checksum = "7bd7356a8122b6c4a24a82b278680c73357984ca2fc79a0f9fa6dea7dced7c58"
 dependencies = [
  "unicode-ident",
 ]
@@ -434,7 +446,7 @@ version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bfa0f585226d2e68097d4f95d113b15b83a82e819ab25717ec0590d9584ef366"
 dependencies = [
- "semver 1.0.13",
+ "semver 1.0.14",
 ]
 
 [[package]]
@@ -454,9 +466,9 @@ dependencies = [
 
 [[package]]
 name = "semver"
-version = "1.0.13"
+version = "1.0.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "93f6841e709003d68bb2deee8c343572bf446003ec20a583e76f7b15cebf3711"
+checksum = "e25dfac463d778e353db5be2449d1cce89bd6fd23c9f1ea21310ce6e5a1b29c4"
 
 [[package]]
 name = "semver-parser"
@@ -513,18 +525,31 @@ dependencies = [
  "nb 1.0.0",
  "paste",
  "stm32h7",
+ "synopsys-usb-otg",
  "void",
 ]
 
 [[package]]
 name = "syn"
-version = "1.0.99"
+version = "1.0.101"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "58dbef6ec655055e20b86b15a8cc6d439cca19b667537ac6a1369572d151ab13"
+checksum = "e90cde112c4b9690b8cbe810cba9ddd8bc1d7472e2cae317b69e9438c1cba7d2"
 dependencies = [
  "proc-macro2",
  "quote",
  "unicode-ident",
+]
+
+[[package]]
+name = "synopsys-usb-otg"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5999b93d4d7e294fc26de39181dbe1428d61dd3b4046642ee0b3927ea2037c9b"
+dependencies = [
+ "cortex-m",
+ "embedded-hal",
+ "usb-device",
+ "vcell",
 ]
 
 [[package]]
@@ -540,9 +565,28 @@ dependencies = [
 
 [[package]]
 name = "unicode-ident"
-version = "1.0.3"
+version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c4f5b37a154999a8f3f98cc23a628d850e154479cd94decf3414696e12e31aaf"
+checksum = "dcc811dc4066ac62f84f11307873c4850cb653bfa9b1719cee2bd2204a4bc5dd"
+
+[[package]]
+name = "usb-device"
+version = "0.2.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1f6cc3adc849b5292b4075fc0d5fdcf2f24866e88e336dd27a8943090a520508"
+
+[[package]]
+name = "v-ecu"
+version = "0.1.12"
+dependencies = [
+ "cortex-m-rtic",
+ "fdcan",
+ "panic-halt",
+ "stm32h7xx-hal",
+ "systick-monotonic",
+ "usb-device",
+ "vecraft",
+]
 
 [[package]]
 name = "vcell"
@@ -560,6 +604,7 @@ dependencies = [
  "panic-halt",
  "stm32h7xx-hal",
  "systick-monotonic",
+ "usb-device",
 ]
 
 [[package]]
