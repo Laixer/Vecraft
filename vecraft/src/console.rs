@@ -23,6 +23,7 @@ impl fmt::Write for Console {
                 stm32h7xx_hal::block!(self.0.write(*c))
             })
             .last();
+
         Ok(())
     }
 }

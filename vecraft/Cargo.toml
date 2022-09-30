@@ -9,4 +9,5 @@ systick-monotonic = "1.0.0"
 cortex-m-rtic = { version = "1.0.0" }
 stm32h7xx-hal = { version = "0.12.2", features = ["stm32h743v", "rt", "can"] }
 fdcan = { version = "0.1.0", features = ["fdcan_h7"] }
-j1939 = { git = "https://github.com/Laixer/J1939" }
+j1939 = { git = "https://github.com/Laixer/J1939", features = ["can"] }
+usb-device = "0.2.9"
