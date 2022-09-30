@@ -40,7 +40,7 @@ mod app {
     struct SharedResources {
         state: vecraft::state::System,
         console: vecraft::console::Console,
-        canbus1: vecraft::can::Bus<
+        canbus1: vecraft::can::Can<
             stm32h7xx_hal::can::Can<stm32h7xx_hal::stm32::FDCAN1>,
             fdcan::NormalOperationMode,
         >,
@@ -101,68 +101,27 @@ mod app {
                 .unwrap(),
         );
 
-        // FDCAN
+        let fdcan_prec = ccdr
+            .peripheral
+            .FDCAN
+            .kernel_clk_mux(rcc::rec::FdcanClkSel::PLL1_Q);
+
+        let pd3 = gpiod.pd3.into_push_pull_output();
+
         let canbus1 = {
-            use fdcan::config::{GlobalFilter, NominalBitTiming, NonMatchingFilter};
-            use fdcan::filter::{Action, ExtendedFilter, ExtendedFilterSlot, FilterType};
-            use fdcan::interrupt::{Interrupt, InterruptLine};
-            use stm32h7xx_hal::rcc::rec::FdcanClkSel;
+            let rx = gpiod.pd0.into_alternate().speed(gpio::Speed::VeryHigh);
+            let tx = gpiod.pd1.into_alternate().speed(gpio::Speed::VeryHigh);
 
-            use core::num::{NonZeroU16, NonZeroU8};
-
-            let fdcan_prec = ccdr.peripheral.FDCAN.kernel_clk_mux(FdcanClkSel::PLL1_Q);
-
-            let mut pd3 = gpiod.pd3.into_push_pull_output();
-            pd3.set_low();
-
-            let mut fdcan = {
-                let rx = gpiod.pd0.into_alternate().speed(gpio::Speed::VeryHigh);
-                let tx = gpiod.pd1.into_alternate().speed(gpio::Speed::VeryHigh);
-
-                ctx.device.FDCAN1.fdcan(tx, rx, fdcan_prec)
-            };
-
-            fdcan.set_protocol_exception_handling(false);
-            fdcan.set_nominal_bit_timing(NominalBitTiming {
-                prescaler: NonZeroU16::new(8).unwrap(),
-                seg1: NonZeroU8::new(13).unwrap(),
-                seg2: NonZeroU8::new(2).unwrap(),
-                sync_jump_width: NonZeroU8::new(1).unwrap(),
-            });
-
-            fdcan.set_global_filter(
-                GlobalFilter::default()
-                    .set_handle_standard_frames(NonMatchingFilter::Reject)
-                    .set_reject_remote_standard_frames(true)
-                    .set_reject_remote_extended_frames(true),
-            );
-
-            let filter = vecraft::j1939::can::destination_address_filter(crate::NET_ADDRESS);
-
-            fdcan.set_extended_filter(
-                ExtendedFilterSlot::_0,
-                ExtendedFilter {
-                    filter: FilterType::BitMask {
-                        filter: filter.filter,
-                        mask: filter.mask,
-                    },
-                    action: Action::StoreInFifo0,
-                },
-            );
-            fdcan.set_extended_filter(ExtendedFilterSlot::_1, ExtendedFilter::reject_all());
-
-            fdcan.enable_interrupt_line(InterruptLine::_0, true);
-            fdcan.enable_interrupt(Interrupt::RxFifo0NewMsg);
-            fdcan.enable_interrupt(Interrupt::ErrPassive);
-            fdcan.enable_interrupt(Interrupt::BusOff);
-
-            vecraft::can::Bus::new(fdcan.into_normal())
+            vecraft::can::CanBuilder::new(ctx.device.FDCAN1.fdcan(tx, rx, fdcan_prec), pd3)
+                .set_bit_timing(vecraft::can::BITRATE_250K)
+                .set_net_address_filter(crate::NET_ADDRESS)
+                .build()
         };
 
         // Button
         let mut b1 = gpioc.pc11.into_pull_up_input();
         // let b2 = gpioc.pc10.into_pull_up_input();
-        
+
         use stm32h7xx_hal::gpio::{Edge, ExtiPin};
 
         b1.make_interrupt_source(&mut ctx.device.SYSCFG);
