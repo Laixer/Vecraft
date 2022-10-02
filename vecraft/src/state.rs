@@ -2,7 +2,6 @@ use core::fmt::Display;
 
 #[derive(PartialEq, Eq, Clone, Copy, Debug)]
 pub enum State {
-    Boot,
     Nominal,
     Ident,
     Faulty,
@@ -11,7 +10,6 @@ pub enum State {
 impl State {
     pub fn as_byte(&self) -> u8 {
         match self {
-            State::Boot => 0x12,
             State::Nominal => 0x14,
             State::Ident => 0x16,
             State::Faulty => 0xfa,
@@ -20,16 +18,10 @@ impl State {
 
     pub fn as_led(&self) -> crate::led::Color {
         match self {
-            State::Boot => crate::led::ORANGE,
             State::Nominal => crate::led::GREEN,
             State::Ident => crate::led::BLUE,
             State::Faulty => crate::led::RED,
         }
-    }
-
-    #[inline]
-    pub fn is_running(&self) -> bool {
-        self != &State::Boot
     }
 }
 
@@ -41,22 +33,15 @@ impl Display for State {
 
 pub struct System {
     ident: bool,
-    boot: bool,
     bus_error: bool,
 }
 
 impl System {
-    pub fn with_boot() -> Self {
+    pub fn boot() -> Self {
         Self {
             ident: false,
-            boot: true,
             bus_error: false,
         }
-    }
-
-    #[inline]
-    pub fn boot_complete(&mut self) {
-        self.boot = false;
     }
 
     #[inline]
@@ -70,9 +55,7 @@ impl System {
     }
 
     pub fn state(&self) -> State {
-        if self.boot {
-            State::Boot
-        } else if self.bus_error {
+        if self.bus_error {
             State::Faulty
         } else if self.ident {
             State::Ident

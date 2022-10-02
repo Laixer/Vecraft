@@ -136,7 +136,7 @@ mod app {
 
         (
             SharedResources {
-                state: vecraft::state::System::with_boot(),
+                state: vecraft::state::System::boot(),
                 console,
                 canbus1,
             },
@@ -153,7 +153,7 @@ mod app {
         )
     }
 
-    #[task(shared = [state, console])]
+    #[task(shared = [console])]
     fn motd(mut ctx: motd::Context) {
         ctx.shared.console.lock(|console| {
             use core::fmt::Write;
@@ -172,8 +172,6 @@ mod app {
             writeln!(console, "   Copyright (C) 2022").ok();
             writeln!(console, "==========================").ok();
         });
-
-        ctx.shared.state.lock(|state| state.boot_complete());
     }
 
     #[task(binds = EXTI15_10, shared = [canbus1, console], local = [signal1])]
@@ -215,9 +213,7 @@ mod app {
             .led
             .set_color(&state.as_led(), &vecraft::led::LedState::Toggle);
 
-        if state.is_running() {
-            ctx.local.watchdog.feed();
-        }
+        ctx.local.watchdog.feed();
 
         firmware_state::spawn_after(50.millis().into()).unwrap();
     }

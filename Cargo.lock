@@ -216,7 +216,7 @@ checksum = "8a9ee70c43aaf417c914396645a0fa852624801b24ebb7ae78fe8272889ac888"
 
 [[package]]
 name = "hcu"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "cortex-m-rtic",
  "fdcan",
@@ -252,7 +252,7 @@ dependencies = [
 [[package]]
 name = "j1939"
 version = "0.1.4"
-source = "git+https://github.com/Laixer/J1939#d6abe389698f16f30ba35f46ba0273c58bbed10a"
+source = "git+https://github.com/Laixer/J1939#03f2261d22db85ee1a68ec2b027951bb1e53282e"
 
 [[package]]
 name = "lazy_static"
@@ -272,7 +272,7 @@ dependencies = [
 
 [[package]]
 name = "m-ecu"
-version = "0.6.1"
+version = "0.6.2"
 dependencies = [
  "cortex-m-rtic",
  "fdcan",
@@ -290,7 +290,7 @@ checksum = "2dffe52ecf27772e601905b7522cb4ef790d2cc203488bbd0e2fe85fcb74566d"
 
 [[package]]
 name = "mt-ecu"
-version = "0.1.5"
+version = "0.2.2"
 dependencies = [
  "cortex-m-rtic",
  "fdcan",
@@ -353,9 +353,9 @@ dependencies = [
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.44"
+version = "1.0.46"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7bd7356a8122b6c4a24a82b278680c73357984ca2fc79a0f9fa6dea7dced7c58"
+checksum = "94e2ef8dbfc347b10c094890f778ee2e36ca9bb4262e86dc99cd217e35f3470b"
 dependencies = [
  "unicode-ident",
 ]
@@ -577,7 +577,7 @@ checksum = "1f6cc3adc849b5292b4075fc0d5fdcf2f24866e88e336dd27a8943090a520508"
 
 [[package]]
 name = "v-ecu"
-version = "0.1.12"
+version = "0.4.2"
 dependencies = [
  "cortex-m-rtic",
  "fdcan",

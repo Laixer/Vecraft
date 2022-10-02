@@ -152,46 +152,6 @@ mod app {
                 .build()
         };
 
-        // let canbus2 = {
-        //     use fdcan::config::NominalBitTiming;
-        //     // use fdcan::filter::{ExtendedFilter, ExtendedFilterSlot};
-        //     // use stm32h7xx_hal::rcc::ResetEnable;
-
-        //     let mut pd7 = gpiod.pd7.into_push_pull_output();
-        //     pd7.set_low();
-
-        //     let mut fdcan2 = {
-        //         let rx = gpiob.pb5.into_alternate().speed(gpio::Speed::VeryHigh);
-        //         let tx = gpiob.pb6.into_alternate().speed(gpio::Speed::VeryHigh);
-
-        //         ctx.device.FDCAN2.fdcan_simple(tx, rx)
-        //     };
-
-        //     use core::num::{NonZeroU16, NonZeroU8};
-
-        //     fdcan2.set_protocol_exception_handling(false);
-        //     fdcan2.set_nominal_bit_timing(NominalBitTiming {
-        //         prescaler: NonZeroU16::new(8).unwrap(),
-        //         seg1: NonZeroU8::new(13).unwrap(),
-        //         seg2: NonZeroU8::new(2).unwrap(),
-        //         sync_jump_width: NonZeroU8::new(1).unwrap(),
-        //     });
-
-        //     fdcan2.set_global_filter(
-        //         fdcan::config::GlobalFilter::default()
-        //             .set_handle_extended_frames(fdcan::config::NonMatchingFilter::IntoRxFifo0)
-        //             .set_handle_standard_frames(fdcan::config::NonMatchingFilter::Reject)
-        //             .set_reject_remote_standard_frames(true)
-        //             .set_reject_remote_extended_frames(true),
-        //     );
-
-        //     fdcan2.enable_interrupt_line(fdcan::interrupt::InterruptLine::_0, true);
-        //     fdcan2.enable_interrupt(fdcan::interrupt::Interrupt::RxFifo0NewMsg);
-        //     fdcan2.enable_interrupt(fdcan::interrupt::Interrupt::RxFifo0Full);
-
-        //     vecraft::can::Bus::new(fdcan2.into_normal())
-        // };
-
         use usb_device::prelude::*;
 
         static mut EP_MEMORY: [u32; 1024] = [0; 1024];
@@ -210,14 +170,7 @@ mod app {
 
         let usb_bus = unsafe { USB2_BUS.as_ref().unwrap() };
 
-        let mut inner = vecraft::usb_avic::AvicClass::new(&usb_bus);
-
-        inner.configure_bittiming(|| {
-            //
-        });
-        inner.configure_termination(|| {
-            //
-        });
+        let inner = vecraft::usb_avic::AvicClass::new(&usb_bus);
 
         let device = UsbDeviceBuilder::new(
             &usb_bus,
@@ -232,48 +185,13 @@ mod app {
         .device_release(0x100)
         .build();
 
-        // Initialize our transmit buffer.
-        // let buffer: &'static mut [u8; 20] = {
-        //     let buf: &mut [core::mem::MaybeUninit<u8>; 20] = unsafe {
-        //         &mut *(&mut SOURCE_BUFFER as *mut core::mem::MaybeUninit<[u8; 20]>
-        //             as *mut [core::mem::MaybeUninit<u8>; 20])
-        //     };
-
-        //     for (i, value) in buf.iter_mut().enumerate() {
-        //         unsafe {
-        //             value.as_mut_ptr().write(i as u8 + 0x60); // 0x60, 0x61, 0x62...
-        //         }
-        //     }
-
-        //     unsafe { &mut *(buf as *mut [core::mem::MaybeUninit<u8>; 20] as *mut [u8; 20]) }
-        // };
-
-        // let streams =
-        //     stm32h7xx_hal::dma::dma::StreamsTuple::new(ctx.device.DMA1, ccdr.peripheral.DMA1);
-
-        // Configure the DMA stream to increment the memory address and generate a transfer complete
-        // interrupt so we know when transmission is done.
-        // let config = stm32h7xx_hal::dma::dma::DmaConfig::default()
-        //     .memory_increment(true)
-        //     .transfer_complete_interrupt(true);
-
-        // let transfer: stm32h7xx_hal::dma::Transfer<
-        //     _,
-        //     _,
-        //     stm32h7xx_hal::dma::MemoryToPeripheral,
-        //     _,
-        //     _,
-        // > = stm32h7xx_hal::dma::Transfer::init(streams.0, canbus1, buffer, None, config);
-
-        // watchdog.start(100.millis());
-
         motd::spawn().ok();
         firmware_state::spawn().ok();
         status_print::spawn().ok();
 
         (
             SharedResources {
-                state: vecraft::state::System::with_boot(),
+                state: vecraft::state::System::boot(),
                 console,
                 canbus1,
                 canbus2,
@@ -291,7 +209,7 @@ mod app {
         )
     }
 
-    #[task(shared = [state, console])]
+    #[task(shared = [console])]
     fn motd(mut ctx: motd::Context) {
         ctx.shared.console.lock(|console| {
             use core::fmt::Write;
@@ -310,8 +228,6 @@ mod app {
             writeln!(console, "   Copyright (C) 2022").ok();
             writeln!(console, "==========================").ok();
         });
-
-        ctx.shared.state.lock(|state| state.boot_complete());
     }
 
     #[task(shared = [state, canbus1], local = [led])]
