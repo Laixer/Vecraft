@@ -357,7 +357,7 @@ mod app {
             ctx.shared.state.lock(|state| state.set_bus_error(true));
         }
 
-        if let Some(frame) = ctx.shared.canbus1.lock(|canbus1| canbus1.recv()) {
+        while let Some(frame) = ctx.shared.canbus1.lock(|canbus1| canbus1.recv()) {
             match frame.id().pgn() {
                 45_312 => {
                     if frame.pdu()[0] == b'Z' && frame.pdu()[1] == b'C' {

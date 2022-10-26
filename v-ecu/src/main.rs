@@ -311,7 +311,7 @@ mod app {
             ctx.shared.state.lock(|state| state.set_bus_error(true));
         }
 
-        if let Some(frame) = ctx.shared.canbus1.lock(|canbus1| canbus1.recv()) {
+        while let Some(frame) = ctx.shared.canbus1.lock(|canbus1| canbus1.recv()) {
             ctx.shared.usb.lock(|usb| {
                 if usb.state() == usb_device::device::UsbDeviceState::Configured {
                     ctx.shared.avic.lock(|avic| {
@@ -357,7 +357,7 @@ mod app {
             ctx.shared.state.lock(|state| state.set_bus_error(true));
         }
 
-        if let Some(frame) = ctx.shared.canbus2.lock(|canbus2| canbus2.recv()) {
+        while let Some(frame) = ctx.shared.canbus2.lock(|canbus1| canbus1.recv()) {
             ctx.shared.usb.lock(|usb| {
                 if usb.state() == usb_device::device::UsbDeviceState::Configured {
                     ctx.shared.avic.lock(|avic| {
@@ -390,6 +390,7 @@ mod app {
         });
 
         if pr {
+            // TODO: Read buffer until empty.
             match ctx.shared.avic.lock(|avic| avic.read_frame()) {
                 Ok(usb_frame) => {
                     let id = vecraft::j1939::Id::new(usb_frame.id());
