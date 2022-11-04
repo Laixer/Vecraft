@@ -63,6 +63,11 @@ impl Frame {
     }
 
     #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.inner.len == 0
+    }
+
+    #[inline]
     pub fn data(&self) -> &[u8] {
         &self.inner.data[..self.inner.len as usize]
     }

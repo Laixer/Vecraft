@@ -122,14 +122,6 @@ where
         Self(interface)
     }
 
-    pub fn error(&self) -> fdcan::ErrorCounters {
-        self.0.error_counters()
-    }
-
-    pub fn get_protocol_status(&self) -> fdcan::ProtocolStatus {
-        self.0.get_protocol_status()
-    }
-
     pub fn is_bus_error(&mut self) -> bool {
         let bus_error = self
             .0
@@ -156,16 +148,10 @@ where
     }
 
     pub fn recv(&mut self) -> Option<j1939::Frame> {
-        if self
-            .0
-            .has_interrupt(fdcan::interrupt::Interrupt::RxFifo0NewMsg)
-        {
-            let mut builder = j1939::FrameBuilder::default();
+        let mut builder = j1939::FrameBuilder::default();
 
-            if let Some(id) = self.read(builder.as_mut()) {
-                builder = builder.id(j1939::Id::new(id));
-            }
-
+        if let Some(id) = self.read(builder.as_mut()) {
+            builder = builder.id(j1939::Id::new(id));
             Some(builder.build())
         } else {
             None
@@ -186,11 +172,6 @@ where
 
     pub fn inner(&mut self) -> &mut fdcan::FdCan<I, M> {
         &mut self.0
-    }
-
-    pub fn has_new_message(&mut self) -> bool {
-        self.0
-            .has_interrupt(fdcan::interrupt::Interrupt::RxFifo0NewMsg)
     }
 
     pub fn read(&mut self, buffer: &mut [u8]) -> Option<u32> {

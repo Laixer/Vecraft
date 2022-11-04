@@ -170,10 +170,10 @@ mod app {
 
         let usb_bus = unsafe { USB2_BUS.as_ref().unwrap() };
 
-        let inner = vecraft::usb_avic::AvicClass::new(&usb_bus);
+        let inner = vecraft::usb_avic::AvicClass::new(usb_bus);
 
         let device = UsbDeviceBuilder::new(
-            &usb_bus,
+            usb_bus,
             UsbVidPid(crate::AVIC_BRIDGE_VENDOR_ID, crate::AVIC_BRIDGE_PRODUCT_ID),
         )
         .manufacturer(crate::DEVICE_MANUFACTURER)
