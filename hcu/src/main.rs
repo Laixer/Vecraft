@@ -273,7 +273,7 @@ mod app {
 
         ctx.local
             .led
-            .set_color(&state.as_led(), &vecraft::led::LedState::Toggle);
+            .set_color(&state.as_led(), &vecraft::led::LedState::On);
 
         ctx.local.watchdog.feed();
 
@@ -336,14 +336,14 @@ mod app {
 
     fn valve_value(value: i16) -> vecraft::lsgc::GateSide<u16, u16> {
         match value {
-            v if v == 0 => vecraft::lsgc::GateSide::Hold,
+            v if v == 0 => vecraft::lsgc::GateSide::Hold(0, 0),
             v if v.is_positive() => vecraft::lsgc::GateSide::Up(value as u16),
             _ => vecraft::lsgc::GateSide::Down((value + 1).abs() as u16),
         }
     }
     fn valve_value32(value: i16) -> vecraft::lsgc::GateSide<u32, u32> {
         match value {
-            v if v == 0 => vecraft::lsgc::GateSide::Hold,
+            v if v == 0 => vecraft::lsgc::GateSide::Hold(0, 0),
             v if v.is_positive() => vecraft::lsgc::GateSide::Up(value as u32),
             _ => vecraft::lsgc::GateSide::Down((value + 1).abs() as u32),
         }
