@@ -1,7 +1,7 @@
 pub enum GateSide<T1, T2> {
     Up(T1),
     Down(T2),
-    Hold,
+    Hold(T1, T2),
 }
 
 pub struct Gate<T1, T2> {
@@ -23,9 +23,11 @@ where
 
     pub fn set_value(&mut self, value: GateSide<T1::Duty, T2::Duty>) -> &mut Self {
         match value {
-            GateSide::Hold => {
-                self.channel_down.disable();
+            GateSide::Hold(value1, value2) => {
+                self.channel_up.set_duty(value1);
+                self.channel_down.set_duty(value2);
                 self.channel_up.disable();
+                self.channel_down.disable();
             }
             GateSide::Up(value) => {
                 self.channel_down.disable();
@@ -39,11 +41,6 @@ where
             }
         }
         self
-    }
-
-    fn disable(&mut self) {
-        self.channel_down.disable();
-        self.channel_up.disable();
     }
 }
 
@@ -105,14 +102,14 @@ pub struct GateControl {
 
 impl GateControl {
     fn disable(&mut self) {
-        self.gate0.disable();
-        self.gate1.disable();
-        self.gate2.disable();
-        self.gate3.disable();
-        self.gate4.disable();
-        self.gate5.disable();
-        self.gate6.disable();
-        self.gate7.disable();
+        self.gate0.set_value(GateSide::Hold(0, 0));
+        self.gate1.set_value(GateSide::Hold(0, 0));
+        self.gate2.set_value(GateSide::Hold(0, 0));
+        self.gate3.set_value(GateSide::Hold(0, 0));
+        self.gate4.set_value(GateSide::Hold(0, 0));
+        self.gate5.set_value(GateSide::Hold(0, 0));
+        self.gate6.set_value(GateSide::Hold(0, 0));
+        self.gate7.set_value(GateSide::Hold(0, 0));
     }
 
     pub fn lock(&mut self) {
