@@ -281,7 +281,7 @@ mod app {
             (0xff, 0xff)
         };
 
-        let id = vecraft::j1939::IdBuilder::from_pgn(65_282)
+        let id = vecraft::j1939::IdBuilder::from_pgn(vecraft::j1939::PGN::Other(65_282))
             .sa(crate::NET_ADDRESS)
             .build();
 
@@ -330,7 +330,7 @@ mod app {
 
             if Some(crate::NET_ADDRESS) == frame.id().destination_address() {
                 match frame.id().pgn() {
-                    45_312 => {
+                    vecraft::j1939::PGN::ProprietarilyConfigurableMessage1 => {
                         if frame.pdu()[0] == b'Z' && frame.pdu()[1] == b'C' {
                             if frame.pdu()[2] & 0b00000001 == 1 {
                                 ctx.shared.state.lock(|state| state.set_ident(true));
@@ -403,7 +403,7 @@ mod app {
 
                     if Some(crate::NET_ADDRESS) == frame.id().destination_address() {
                         match frame.id().pgn() {
-                            45_312 => {
+                            vecraft::j1939::PGN::ProprietarilyConfigurableMessage1 => {
                                 if frame.pdu()[0] == b'Z' && frame.pdu()[1] == b'C' {
                                     if frame.pdu()[2] & 0b00000001 == 1 {
                                         ctx.shared.state.lock(|state| state.set_ident(true));

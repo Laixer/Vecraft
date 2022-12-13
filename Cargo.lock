@@ -222,7 +222,7 @@ dependencies = [
 [[package]]
 name = "j1939"
 version = "0.1.11"
-source = "git+https://github.com/Laixer/J1939#a613cecb8d7366d28205d8249760ae3d83928cc5"
+source = "git+https://github.com/Laixer/J1939#4c4cebf14020b27df43d1cec0cefa318c923df07"
 
 [[package]]
 name = "lock_api"
@@ -236,7 +236,7 @@ dependencies = [
 
 [[package]]
 name = "m-ecu"
-version = "0.6.2"
+version = "0.4.2"
 dependencies = [
  "cortex-m-rtic",
  "fdcan",
@@ -439,9 +439,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "1.0.104"
+version = "1.0.105"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4ae548ec36cf198c0ef7710d3c230987c2d6d7bd98ad6edc0274462724c585ce"
+checksum = "60b9b43d45702de4c839cb9b51d9f529c5dd26a4aff255b42b1ebc03e88ee908"
 dependencies = [
  "proc-macro2",
  "quote",

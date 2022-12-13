@@ -150,8 +150,8 @@ where
     pub fn recv(&mut self) -> Option<j1939::Frame> {
         let mut builder = j1939::FrameBuilder::default();
 
-        if let Some(id) = self.read(builder.as_mut()) {
-            builder = builder.id(j1939::Id::new(id));
+        if let Some((id, len)) = self.read(builder.as_mut()) {
+            builder = builder.id(j1939::Id::new(id)).set_len(len);
             Some(builder.build())
         } else {
             None
@@ -174,11 +174,11 @@ where
         &mut self.0
     }
 
-    pub fn read(&mut self, buffer: &mut [u8]) -> Option<u32> {
+    pub fn read(&mut self, buffer: &mut [u8]) -> Option<(u32, usize)> {
         let id = if let Ok(header) = self.0.receive0(buffer) {
             let header = header.unwrap();
             if let fdcan::id::Id::Extended(id) = header.id {
-                Some(id.as_raw())
+                Some((id.as_raw(), header.len as usize))
             } else {
                 None
             }
