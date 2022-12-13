@@ -135,7 +135,7 @@ mod app {
         let mut adc1 =
             Adc::adc1(ctx.device.ADC1, &mut k, ccdr.peripheral.ADC12, &ccdr.clocks).enable();
 
-        adc1.set_resolution(Resolution::TENBIT);
+        adc1.set_resolution(Resolution::TWELVEBITV);
         adc1.set_sample_time(AdcSampleTime::T_387);
 
         let channel1 = gpioc.pc2.into_analog();
@@ -189,17 +189,11 @@ mod app {
         });
     }
 
-    #[task(shared = [canbus1, console], local = [adc1, channel1])]
+    #[task(shared = [canbus1], local = [adc1, channel1])]
     fn adc_print(mut ctx: adc_print::Context) {
         let data: u32 = ctx.local.adc1.read(ctx.local.channel1).unwrap();
 
-        ctx.shared.console.lock(|console| {
-            use core::fmt::Write;
-
-            writeln!(console, "ADC Channel 1: {}", data).ok();
-        });
-
-        let id = vecraft::j1939::IdBuilder::from_pgn(64_258)
+        let id = vecraft::j1939::IdBuilder::from_pgn(vecraft::j1939::PGN::ProprietaryB(65_450))
             .sa(crate::NET_ADDRESS)
             .build();
 
