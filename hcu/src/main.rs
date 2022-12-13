@@ -9,9 +9,9 @@ use stm32h7xx_hal::time::Hertz;
 
 const PKG_NAME: &str = env!("CARGO_PKG_NAME");
 const PKG_VERSION: &str = env!("CARGO_PKG_VERSION");
-const PKG_VERSION_MAJOR: &str = env!("CARGO_PKG_VERSION_MAJOR");
-const PKG_VERSION_MINOR: &str = env!("CARGO_PKG_VERSION_MINOR");
-const PKG_VERSION_PATCH: &str = env!("CARGO_PKG_VERSION_PATCH");
+// const PKG_VERSION_MAJOR: &str = env!("CARGO_PKG_VERSION_MAJOR");
+// const PKG_VERSION_MINOR: &str = env!("CARGO_PKG_VERSION_MINOR");
+// const PKG_VERSION_PATCH: &str = env!("CARGO_PKG_VERSION_PATCH");
 
 /// High speed external clock frequency.
 const HSE: Hertz = Hertz::MHz(25);
@@ -301,35 +301,35 @@ mod app {
             .ok();
         });
 
-        let major: u8 = crate::PKG_VERSION_MAJOR.parse().unwrap();
-        let minor: u8 = crate::PKG_VERSION_MINOR.parse().unwrap();
-        let patch: u8 = crate::PKG_VERSION_PATCH.parse().unwrap();
+        // let major: u8 = crate::PKG_VERSION_MAJOR.parse().unwrap();
+        // let minor: u8 = crate::PKG_VERSION_MINOR.parse().unwrap();
+        // let patch: u8 = crate::PKG_VERSION_PATCH.parse().unwrap();
 
-        let last_error = 0_u16;
-        let (last_error_high, last_error_low) = if last_error > 0 {
-            (last_error.to_le_bytes()[0], last_error.to_le_bytes()[1])
-        } else {
-            (0xff, 0xff)
-        };
+        // let last_error = 0_u16;
+        // let (last_error_high, last_error_low) = if last_error > 0 {
+        //     (last_error.to_le_bytes()[0], last_error.to_le_bytes()[1])
+        // } else {
+        //     (0xff, 0xff)
+        // };
 
-        let id = vecraft::j1939::IdBuilder::from_pgn(65_282)
-            .sa(crate::NET_ADDRESS)
-            .build();
+        // let id = vecraft::j1939::IdBuilder::from_pgn(vecraft::j1939::PGN::Other(65_282))
+        //     .sa(crate::NET_ADDRESS)
+        //     .build();
 
-        let frame = vecraft::j1939::FrameBuilder::new(id)
-            .copy_from_slice(&[
-                0xff,
-                state.as_byte(),
-                major,
-                minor,
-                patch,
-                0xff,
-                last_error_high,
-                last_error_low,
-            ])
-            .build();
+        // let _frame = vecraft::j1939::FrameBuilder::new(id)
+        //     .copy_from_slice(&[
+        //         0xff,
+        //         state.as_byte(),
+        //         major,
+        //         minor,
+        //         patch,
+        //         0xff,
+        //         last_error_high,
+        //         last_error_low,
+        //     ])
+        //     .build();
 
-        ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
+        // ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
 
         status_print::spawn_after(1.secs().into()).unwrap();
     }
@@ -359,7 +359,35 @@ mod app {
 
         while let Some(frame) = ctx.shared.canbus1.lock(|canbus1| canbus1.recv()) {
             match frame.id().pgn() {
-                45_312 => {
+                vecraft::j1939::PGN::Request => {
+                    let pgn =
+                        vecraft::j1939::PGN::from_le_bytes(frame.pdu()[0..3].try_into().unwrap());
+
+                    let id = vecraft::j1939::IdBuilder::from_pgn(
+                        vecraft::j1939::PGN::AcknowledgmentMessage,
+                    )
+                    .da(0xff)
+                    .sa(crate::NET_ADDRESS)
+                    .build();
+
+                    let pgn_bytes = pgn.to_le_bytes();
+
+                    let frame = vecraft::j1939::FrameBuilder::new(id)
+                        .copy_from_slice(&[
+                            0x01,
+                            0xff,
+                            0xff,
+                            0xff,
+                            0xff,
+                            pgn_bytes[0],
+                            pgn_bytes[1],
+                            pgn_bytes[2],
+                        ])
+                        .build();
+
+                    ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
+                }
+                vecraft::j1939::PGN::ProprietarilyConfigurableMessage1 => {
                     if frame.pdu()[0] == b'Z' && frame.pdu()[1] == b'C' {
                         if frame.pdu()[2] & 0b00000001 == 1 {
                             ctx.shared.state.lock(|state| state.set_ident(true));
