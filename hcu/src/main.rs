@@ -400,7 +400,7 @@ mod app {
                         }
                     }
                 }
-                45_824 => {
+                vecraft::j1939::PGN::Other(45_824) => {
                     if frame.pdu()[0] == b'Z' && frame.pdu()[1] == b'C' {
                         if frame.pdu()[3] & 0b11 == 0 {
                             ctx.shared.console.lock(|console| {
@@ -421,7 +421,7 @@ mod app {
                         }
                     }
                 }
-                40_960 => {
+                vecraft::j1939::PGN::Other(40_960) => {
                     if frame.pdu()[0..2] != [0xff, 0xff] {
                         let gate_value = i16::from_le_bytes(frame.pdu()[0..2].try_into().unwrap());
 
@@ -443,7 +443,7 @@ mod app {
                         ctx.local.gc.gate3.set_value(valve_value(gate_value));
                     }
                 }
-                41_216 => {
+                vecraft::j1939::PGN::Other(41_216) => {
                     if frame.pdu()[0..2] != [0xff, 0xff] {
                         let gate_value = i16::from_le_bytes(frame.pdu()[0..2].try_into().unwrap());
 
