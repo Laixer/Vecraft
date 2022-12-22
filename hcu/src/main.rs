@@ -400,7 +400,7 @@ mod app {
                         }
                     }
                 }
-                vecraft::j1939::PGN::Other(45_824) => {
+                vecraft::j1939::PGN::ProprietarilyConfigurableMessage3 => {
                     if frame.pdu()[0] == b'Z' && frame.pdu()[1] == b'C' {
                         if frame.pdu()[3] & 0b11 == 0 {
                             ctx.shared.console.lock(|console| {
