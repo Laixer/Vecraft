@@ -9,9 +9,9 @@ use stm32h7xx_hal::time::Hertz;
 
 const PKG_NAME: &str = env!("CARGO_PKG_NAME");
 const PKG_VERSION: &str = env!("CARGO_PKG_VERSION");
-const PKG_VERSION_MAJOR: &str = env!("CARGO_PKG_VERSION_MAJOR");
-const PKG_VERSION_MINOR: &str = env!("CARGO_PKG_VERSION_MINOR");
-const PKG_VERSION_PATCH: &str = env!("CARGO_PKG_VERSION_PATCH");
+// const PKG_VERSION_MAJOR: &str = env!("CARGO_PKG_VERSION_MAJOR");
+// const PKG_VERSION_MINOR: &str = env!("CARGO_PKG_VERSION_MINOR");
+// const PKG_VERSION_PATCH: &str = env!("CARGO_PKG_VERSION_PATCH");
 
 const AVIC_BRIDGE_VENDOR_ID: u16 = 0x1d6b;
 const AVIC_BRIDGE_PRODUCT_ID: u16 = 0x27dd;
@@ -32,8 +32,6 @@ const SYS_CLOCK: Hertz = Hertz::MHz(400);
 const FDCAN_CLOCK: Hertz = Hertz::MHz(32);
 /// USART peripheral clock.
 const USART_CLOCK: Hertz = Hertz::MHz(48);
-
-const NET_ADDRESS: u8 = 0x7C;
 
 #[rtic::app(device = stm32h7xx_hal::stm32, peripherals = true, dispatchers = [USART1, USART2])]
 mod app {
@@ -222,7 +220,6 @@ mod app {
             writeln!(console).ok();
             writeln!(console, "    Firmware : {}", crate::PKG_NAME).ok();
             writeln!(console, "    Version  : {}", crate::PKG_VERSION).ok();
-            writeln!(console, "    Address  : 0x{:X?}", crate::NET_ADDRESS).ok();
             writeln!(console).ok();
             writeln!(console, "  Laixer Equipment B.V.").ok();
             writeln!(console, "   Copyright (C) 2022").ok();
@@ -244,7 +241,7 @@ mod app {
 
         ctx.local
             .led
-            .set_color(&state.as_led(), &vecraft::led::LedState::Toggle);
+            .set_color(&state.as_led(), &vecraft::led::LedState::On);
 
         firmware_state::spawn_after(50.millis().into()).unwrap();
     }
@@ -269,36 +266,6 @@ mod app {
             )
             .ok();
         });
-
-        let major: u8 = crate::PKG_VERSION_MAJOR.parse().unwrap();
-        let minor: u8 = crate::PKG_VERSION_MINOR.parse().unwrap();
-        let patch: u8 = crate::PKG_VERSION_PATCH.parse().unwrap();
-
-        let last_error = 0_u16;
-        let (last_error_high, last_error_low) = if last_error > 0 {
-            (last_error.to_le_bytes()[0], last_error.to_le_bytes()[1])
-        } else {
-            (0xff, 0xff)
-        };
-
-        let id = vecraft::j1939::IdBuilder::from_pgn(vecraft::j1939::PGN::Other(65_282))
-            .sa(crate::NET_ADDRESS)
-            .build();
-
-        let frame = vecraft::j1939::FrameBuilder::new(id)
-            .copy_from_slice(&[
-                0xff,
-                state.as_byte(),
-                major,
-                minor,
-                patch,
-                0xff,
-                last_error_high,
-                last_error_low,
-            ])
-            .build();
-
-        ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
 
         status_print::spawn_after(1.secs().into()).unwrap();
     }
@@ -327,25 +294,6 @@ mod app {
                     });
                 }
             });
-
-            if Some(crate::NET_ADDRESS) == frame.id().destination_address() {
-                match frame.id().pgn() {
-                    vecraft::j1939::PGN::ProprietarilyConfigurableMessage1 => {
-                        if frame.pdu()[0] == b'Z' && frame.pdu()[1] == b'C' {
-                            if frame.pdu()[2] & 0b00000001 == 1 {
-                                ctx.shared.state.lock(|state| state.set_ident(true));
-                            } else if frame.pdu()[2] & 0b00000001 == 0 {
-                                ctx.shared.state.lock(|state| state.set_ident(false));
-                            }
-
-                            if frame.pdu()[3] == 0x69 {
-                                vecraft::sys_reset();
-                            }
-                        }
-                    }
-                    _ => {}
-                }
-            }
         }
     }
 
@@ -380,53 +328,35 @@ mod app {
     fn usb_event(mut ctx: usb_event::Context) {
         use usb_device::prelude::UsbDeviceState;
 
-        let pr = ctx.shared.usb.lock(|usb| loop {
-            let pr = ctx.shared.avic.lock(|avic| usb.poll(&mut [avic]));
+        let data_available = ctx.shared.usb.lock(|usb| loop {
+            let data_available = ctx.shared.avic.lock(|avic| usb.poll(&mut [avic]));
 
             match usb.state() {
-                UsbDeviceState::Configured | UsbDeviceState::Suspend => break pr,
+                UsbDeviceState::Configured | UsbDeviceState::Suspend => break data_available,
                 _ => {}
             }
         });
 
-        if pr {
-            // TODO: Read buffer until empty.
-            match ctx.shared.avic.lock(|avic| avic.read_frame()) {
-                Ok(usb_frame) => {
-                    let id = vecraft::j1939::Id::new(usb_frame.id());
+        if data_available {
+            loop {
+                match ctx.shared.avic.lock(|avic| avic.read_frame()) {
+                    Ok(usb_frame) => {
+                        let id = vecraft::j1939::Id::new(usb_frame.id());
 
-                    let frame = vecraft::j1939::FrameBuilder::new(id)
-                        .copy_from_slice(&usb_frame.data()[..8])
-                        .build();
+                        let frame = vecraft::j1939::FrameBuilder::new(id)
+                            .copy_from_slice(&usb_frame.data()[..8])
+                            .build();
 
-                    ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
-
-                    if Some(crate::NET_ADDRESS) == frame.id().destination_address() {
-                        match frame.id().pgn() {
-                            vecraft::j1939::PGN::ProprietarilyConfigurableMessage1 => {
-                                if frame.pdu()[0] == b'Z' && frame.pdu()[1] == b'C' {
-                                    if frame.pdu()[2] & 0b00000001 == 1 {
-                                        ctx.shared.state.lock(|state| state.set_ident(true));
-                                    } else if frame.pdu()[2] & 0b00000001 == 0 {
-                                        ctx.shared.state.lock(|state| state.set_ident(false));
-                                    }
-
-                                    if frame.pdu()[3] == 0x69 {
-                                        vecraft::sys_reset();
-                                    }
-                                }
-                            }
-                            _ => {}
-                        }
+                        ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
                     }
-                }
-                Err(usb_device::UsbError::WouldBlock) => {}
-                Err(e) => {
-                    ctx.shared.console.lock(|console| {
-                        use core::fmt::Write;
+                    Err(usb_device::UsbError::WouldBlock) => break,
+                    Err(e) => {
+                        ctx.shared.console.lock(|console| {
+                            use core::fmt::Write;
 
-                        writeln!(console, "USB Error: {:?}", e).ok();
-                    });
+                            writeln!(console, "USB Error: {:?}", e).ok();
+                        });
+                    }
                 }
             }
         }

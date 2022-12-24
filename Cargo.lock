@@ -485,7 +485,7 @@ checksum = "1f6cc3adc849b5292b4075fc0d5fdcf2f24866e88e336dd27a8943090a520508"
 
 [[package]]
 name = "v-ecu"
-version = "0.4.2"
+version = "0.4.4"
 dependencies = [
  "cortex-m-rtic",
  "fdcan",
