@@ -9,9 +9,6 @@ use stm32h7xx_hal::time::Hertz;
 
 const PKG_NAME: &str = env!("CARGO_PKG_NAME");
 const PKG_VERSION: &str = env!("CARGO_PKG_VERSION");
-// const PKG_VERSION_MAJOR: &str = env!("CARGO_PKG_VERSION_MAJOR");
-// const PKG_VERSION_MINOR: &str = env!("CARGO_PKG_VERSION_MINOR");
-// const PKG_VERSION_PATCH: &str = env!("CARGO_PKG_VERSION_PATCH");
 
 const AVIC_BRIDGE_VENDOR_ID: u16 = 0x1d6b;
 const AVIC_BRIDGE_PRODUCT_ID: u16 = 0x27dd;
@@ -22,7 +19,6 @@ const AVIC_BRIDGE_CAN_DEV_PROTO: u8 = 0;
 
 const DEVICE_MANUFACTURER: &str = "Laixer Equipment B.V.";
 const DEVICE_PRODUCT: &str = "AVIC CAN Bridge";
-const DEVICE_SERIAL_NUMBER: &str = "ZENTIC";
 
 /// High speed external clock frequency.
 const HSE: Hertz = Hertz::MHz(25);
@@ -176,7 +172,7 @@ mod app {
         )
         .manufacturer(crate::DEVICE_MANUFACTURER)
         .product(crate::DEVICE_PRODUCT)
-        .serial_number(crate::DEVICE_SERIAL_NUMBER)
+        .serial_number(crate::PKG_VERSION)
         .device_class(crate::AVIC_BRIDGE_CAN_DEV_CLASS)
         .device_sub_class(crate::AVIC_BRIDGE_CAN_DEV_SUBCLASS)
         .device_protocol(crate::AVIC_BRIDGE_CAN_DEV_PROTO)
@@ -356,6 +352,7 @@ mod app {
 
                             writeln!(console, "USB Error: {:?}", e).ok();
                         });
+                        break;
                     }
                 }
             }
