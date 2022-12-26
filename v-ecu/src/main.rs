@@ -340,7 +340,7 @@ mod app {
                         let id = vecraft::j1939::Id::new(usb_frame.id());
 
                         let frame = vecraft::j1939::FrameBuilder::new(id)
-                            .copy_from_slice(&usb_frame.data()[..8])
+                            .copy_from_slice(&usb_frame.data()[..usb_frame.len() as usize])
                             .build();
 
                         ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
