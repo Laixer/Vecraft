@@ -215,6 +215,7 @@ mod app {
         status_print::spawn().ok();
 
         watchdog.start(75.millis());
+        watchdog.listen(EarlyWakeup);
 
         (
             SharedResources {
@@ -277,8 +278,17 @@ mod app {
         firmware_state::spawn_after(50.millis().into()).unwrap();
     }
 
-    #[task(shared = [state, canbus1, console], local = [])]
-    fn status_print(mut ctx: status_print::Context) {
+    #[task(binds = WWDG1, shared = [console, gate_lock])]
+    fn watchdog_early_warning(mut ctx: watchdog_early_warning::Context) {
+        ctx.shared.gate_lock.lock(|gate_lock| gate_lock.lock());
+
+        ctx.shared.console.lock(|console| {
+            use core::fmt::Write;
+
+            writeln!(console, "Soft fault occurred; resetting hardware").ok();
+        });
+    }
+
         let uptime = monotonics::now().duration_since_epoch();
 
         let seconds = uptime.to_secs() % 60;
