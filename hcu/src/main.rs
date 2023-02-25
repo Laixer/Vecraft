@@ -9,9 +9,6 @@ use stm32h7xx_hal::time::Hertz;
 
 const PKG_NAME: &str = env!("CARGO_PKG_NAME");
 const PKG_VERSION: &str = env!("CARGO_PKG_VERSION");
-// const PKG_VERSION_MAJOR: &str = env!("CARGO_PKG_VERSION_MAJOR");
-// const PKG_VERSION_MINOR: &str = env!("CARGO_PKG_VERSION_MINOR");
-// const PKG_VERSION_PATCH: &str = env!("CARGO_PKG_VERSION_PATCH");
 
 /// High speed external clock frequency.
 const HSE: Hertz = Hertz::MHz(25);
