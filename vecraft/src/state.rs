@@ -4,7 +4,8 @@ use core::fmt::Display;
 pub enum State {
     Nominal,
     Ident,
-    Faulty,
+    FaultyGenericError,
+    FaultyBusError,
 }
 
 impl State {
@@ -12,7 +13,8 @@ impl State {
         match self {
             State::Nominal => 0x14,
             State::Ident => 0x16,
-            State::Faulty => 0xfa,
+            State::FaultyGenericError => 0xfa,
+            State::FaultyBusError => 0xfb,
         }
     }
 
@@ -20,7 +22,8 @@ impl State {
         match self {
             State::Nominal => crate::led::GREEN,
             State::Ident => crate::led::BLUE,
-            State::Faulty => crate::led::RED,
+            State::FaultyGenericError => crate::led::ORANGE,
+            State::FaultyBusError => crate::led::RED,
         }
     }
 }
@@ -31,6 +34,7 @@ impl Display for State {
     }
 }
 
+/// Keeps track of the system state.
 pub struct System {
     ident: bool,
     bus_error: bool,
@@ -56,7 +60,7 @@ impl System {
 
     pub fn state(&self) -> State {
         if self.bus_error {
-            State::Faulty
+            State::FaultyBusError
         } else if self.ident {
             State::Ident
         } else {

@@ -202,6 +202,7 @@ mod app {
             lockout1: pwr_swtich2,
         };
 
+        let gc = vecraft::lsgc::GateControl {
             gate0,
             gate1,
             gate2,
@@ -215,7 +216,7 @@ mod app {
 
         motd::spawn().ok();
         firmware_state::spawn().ok();
-        status_print::spawn().ok();
+        firmware_state_broadcast::spawn_after(500.millis().into()).ok();
 
         watchdog.start(75.millis());
         watchdog.listen(EarlyWakeup);
@@ -256,7 +257,7 @@ mod app {
             writeln!(console, "    Address  : 0x{:X?}", crate::NET_ADDRESS).ok();
             writeln!(console).ok();
             writeln!(console, "  Laixer Equipment B.V.").ok();
-            writeln!(console, "   Copyright (C) 2022").ok();
+            writeln!(console, "   Copyright (C) 2023").ok();
             writeln!(console, "==========================").ok();
         });
     }
@@ -282,7 +283,7 @@ mod app {
 
         ctx.local.watchdog.feed();
 
-        firmware_state::spawn_after(50.millis().into()).unwrap();
+        firmware_state::spawn_after(50.millis().into()).ok();
     }
 
     #[task(binds = WWDG1, shared = [console, gate_lock])]
@@ -296,13 +297,16 @@ mod app {
         });
     }
 
+    #[task(shared = [state, canbus1, console])]
+    fn firmware_state_broadcast(mut ctx: firmware_state_broadcast::Context) {
+        let state = ctx.shared.state.lock(|state| state.state());
+        let state_subclass = 0;
+
         let uptime = monotonics::now().duration_since_epoch();
 
         let seconds = uptime.to_secs() % 60;
         let minutes = uptime.to_minutes() % 60;
         let hours = uptime.to_hours() % 24;
-
-        let state = ctx.shared.state.lock(|state| state.state());
 
         ctx.shared.console.lock(|console| {
             use core::fmt::Write;
@@ -315,37 +319,29 @@ mod app {
             .ok();
         });
 
-        // let major: u8 = crate::PKG_VERSION_MAJOR.parse().unwrap();
-        // let minor: u8 = crate::PKG_VERSION_MINOR.parse().unwrap();
-        // let patch: u8 = crate::PKG_VERSION_PATCH.parse().unwrap();
+        let timestamp = uptime.to_secs() as u32;
 
-        // let last_error = 0_u16;
-        // let (last_error_high, last_error_low) = if last_error > 0 {
-        //     (last_error.to_le_bytes()[0], last_error.to_le_bytes()[1])
-        // } else {
-        //     (0xff, 0xff)
-        // };
+        let id = vecraft::j1939::IdBuilder::from_pgn(vecraft::j1939::PGN::Other(65_282))
+            .priority(7)
+            .sa(crate::NET_ADDRESS)
+            .build();
 
-        // let id = vecraft::j1939::IdBuilder::from_pgn(vecraft::j1939::PGN::Other(65_282))
-        //     .sa(crate::NET_ADDRESS)
-        //     .build();
+        let frame = vecraft::j1939::FrameBuilder::new(id)
+            .copy_from_slice(&[
+                state.as_byte(),
+                state_subclass,
+                0xff,
+                0xff,
+                timestamp.to_le_bytes()[0],
+                timestamp.to_le_bytes()[1],
+                timestamp.to_le_bytes()[2],
+                timestamp.to_le_bytes()[3],
+            ])
+            .build();
 
-        // let _frame = vecraft::j1939::FrameBuilder::new(id)
-        //     .copy_from_slice(&[
-        //         0xff,
-        //         state.as_byte(),
-        //         major,
-        //         minor,
-        //         patch,
-        //         0xff,
-        //         last_error_high,
-        //         last_error_low,
-        //     ])
-        //     .build();
+        ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
 
-        // ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
-
-        status_print::spawn_after(1.secs().into()).unwrap();
+        firmware_state_broadcast::spawn_after(500.millis().into()).ok();
     }
 
     fn valve_value(value: i16) -> vecraft::lsgc::GateSide<u16, u16> {
