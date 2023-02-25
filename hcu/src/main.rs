@@ -27,7 +27,7 @@ mod app {
     use stm32h7xx_hal::gpio::{self};
     use stm32h7xx_hal::prelude::*;
     use stm32h7xx_hal::rcc;
-    use stm32h7xx_hal::watchdog::SystemWindowWatchdog;
+    use stm32h7xx_hal::watchdog::{Event::EarlyWakeup, SystemWindowWatchdog};
     use systick_monotonic::Systick;
 
     /// 100 Hz / 10 ms granularity
@@ -42,6 +42,7 @@ mod app {
             stm32h7xx_hal::can::Can<stm32h7xx_hal::stm32::FDCAN1>,
             fdcan::NormalOperationMode,
         >,
+        gate_lock: vecraft::lsgc::GateLock,
     }
 
     #[local]
@@ -196,9 +197,11 @@ mod app {
         let gate6 = vecraft::lsgc::Gate::new(pwm_high6, pwm_low6);
         let gate7 = vecraft::lsgc::Gate::new(pwm_high7, pwm_low7);
 
-        let mut gc = vecraft::lsgc::GateControl {
+        let mut gl = vecraft::lsgc::GateLock {
             lockout0: pwr_swtich1,
             lockout1: pwr_swtich2,
+        };
+
             gate0,
             gate1,
             gate2,
@@ -208,7 +211,7 @@ mod app {
             gate6,
             gate7,
         };
-        gc.lock();
+        gl.lock();
 
         motd::spawn().ok();
         firmware_state::spawn().ok();
@@ -222,6 +225,7 @@ mod app {
                 state: vecraft::state::System::boot(),
                 console,
                 canbus1,
+                gate_lock: gl,
             },
             LocalResources {
                 led: vecraft::led::Led::new(
@@ -257,13 +261,16 @@ mod app {
         });
     }
 
-    #[task(shared = [state, canbus1], local = [led, watchdog])]
+    #[task(shared = [state, canbus1, gate_lock], local = [led, watchdog])]
     fn firmware_state(mut ctx: firmware_state::Context) {
         let is_bus_ok = ctx.shared.canbus1.lock(|canbus1| canbus1.is_bus_ok());
 
         let state = ctx.shared.state.lock(|state| {
             if is_bus_ok {
                 state.set_bus_error(false);
+            } else {
+                state.set_bus_error(true);
+                ctx.shared.gate_lock.lock(|gate_lock| gate_lock.lock());
             }
 
             state.state()
@@ -356,12 +363,20 @@ mod app {
         }
     }
 
-    #[task(binds = FDCAN1_IT0, priority = 2, shared = [canbus1, state, console], local = [gc])]
+    #[task(binds = FDCAN1_IT0, priority = 2, shared = [canbus1, state, console, gate_lock], local = [gc])]
     fn can1_event(mut ctx: can1_event::Context) {
         let is_bus_error = ctx.shared.canbus1.lock(|canbus1| canbus1.is_bus_error());
 
         if is_bus_error {
             ctx.shared.state.lock(|state| state.set_bus_error(true));
+
+            ctx.shared.console.lock(|console| {
+                use core::fmt::Write;
+
+                writeln!(console, "Motion locked due to bus error").ok();
+            });
+
+            ctx.shared.gate_lock.lock(|gate_lock| gate_lock.lock());
         }
 
         while let Some(frame) = ctx.shared.canbus1.lock(|canbus1| canbus1.recv()) {
@@ -416,15 +431,23 @@ mod app {
                                 writeln!(console, "Motion locked").ok();
                             });
 
-                            ctx.local.gc.lock();
+                            ctx.shared.gate_lock.lock(|gate_lock| gate_lock.lock());
                         } else if frame.pdu()[3] & 0b11 == 1 {
-                            ctx.shared.console.lock(|console| {
-                                use core::fmt::Write;
+                            let state = ctx.shared.state.lock(|state| state.state());
+                            if state == vecraft::state::State::Nominal {
+                                ctx.shared.console.lock(|console| {
+                                    use core::fmt::Write;
 
-                                writeln!(console, "Motion unlocked").ok();
-                            });
+                                    writeln!(console, "Motion unlocked").ok();
+                                });
 
-                            ctx.local.gc.unlock();
+                                ctx.local.gc.reset();
+                                ctx.shared.gate_lock.lock(|gate_lock| gate_lock.unlock());
+                            }
+                        }
+
+                        if frame.pdu()[4] & 0b00000001 == 1 {
+                            ctx.local.gc.reset();
                         }
                     }
                 }

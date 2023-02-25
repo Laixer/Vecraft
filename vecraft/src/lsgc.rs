@@ -87,9 +87,24 @@ pub type PinLockout0 =
 pub type PinLockout1 =
     stm32h7xx_hal::gpio::PA12<stm32h7xx_hal::gpio::Output<stm32h7xx_hal::gpio::PushPull>>;
 
-pub struct GateControl {
+pub struct GateLock {
     pub lockout0: PinLockout0,
     pub lockout1: PinLockout1,
+}
+
+impl GateLock {
+    pub fn lock(&mut self) {
+        self.lockout0.set_low();
+        self.lockout1.set_low();
+    }
+
+    pub fn unlock(&mut self) {
+        self.lockout0.set_high();
+        self.lockout1.set_high();
+    }
+}
+
+pub struct GateControl {
     pub gate0: Gate0,
     pub gate1: Gate1,
     pub gate2: Gate2,
@@ -101,7 +116,7 @@ pub struct GateControl {
 }
 
 impl GateControl {
-    fn disable(&mut self) {
+    pub fn reset(&mut self) {
         self.gate0.set_value(GateSide::Hold(0, 0));
         self.gate1.set_value(GateSide::Hold(0, 0));
         self.gate2.set_value(GateSide::Hold(0, 0));
@@ -110,17 +125,5 @@ impl GateControl {
         self.gate5.set_value(GateSide::Hold(0, 0));
         self.gate6.set_value(GateSide::Hold(0, 0));
         self.gate7.set_value(GateSide::Hold(0, 0));
-    }
-
-    pub fn lock(&mut self) {
-        self.disable();
-        self.lockout0.set_low();
-        self.lockout1.set_low();
-    }
-
-    pub fn unlock(&mut self) {
-        self.disable();
-        self.lockout0.set_high();
-        self.lockout1.set_high();
     }
 }
