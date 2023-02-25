@@ -48,7 +48,7 @@ mod app {
     #[local]
     struct LocalResources {
         led: vecraft::led::Led,
-        gc: vecraft::lsgc::GateControl,
+        gate_control: vecraft::lsgc::GateControl,
         watchdog: SystemWindowWatchdog,
     }
 
@@ -197,12 +197,12 @@ mod app {
         let gate6 = vecraft::lsgc::Gate::new(pwm_high6, pwm_low6);
         let gate7 = vecraft::lsgc::Gate::new(pwm_high7, pwm_low7);
 
-        let mut gl = vecraft::lsgc::GateLock {
+        let mut gate_lock = vecraft::lsgc::GateLock {
             lockout0: pwr_swtich1,
             lockout1: pwr_swtich2,
         };
 
-        let gc = vecraft::lsgc::GateControl {
+        let gate_control = vecraft::lsgc::GateControl {
             gate0,
             gate1,
             gate2,
@@ -212,7 +212,7 @@ mod app {
             gate6,
             gate7,
         };
-        gl.lock();
+        gate_lock.lock();
 
         motd::spawn().ok();
         firmware_state::spawn().ok();
@@ -226,7 +226,7 @@ mod app {
                 state: vecraft::state::System::boot(),
                 console,
                 canbus1,
-                gate_lock: gl,
+                gate_lock,
             },
             LocalResources {
                 led: vecraft::led::Led::new(
@@ -234,7 +234,7 @@ mod app {
                     gpiob.pb14.into_push_pull_output(),
                     gpiob.pb12.into_push_pull_output(),
                 ),
-                gc,
+                gate_control,
                 watchdog,
             },
             init::Monotonics(mono),
@@ -359,7 +359,7 @@ mod app {
         }
     }
 
-    #[task(binds = FDCAN1_IT0, priority = 2, shared = [canbus1, state, console, gate_lock], local = [gc])]
+    #[task(binds = FDCAN1_IT0, priority = 2, shared = [canbus1, state, console, gate_lock], local = [gate_control])]
     fn can1_event(mut ctx: can1_event::Context) {
         let is_bus_error = ctx.shared.canbus1.lock(|canbus1| canbus1.is_bus_error());
 
@@ -437,13 +437,13 @@ mod app {
                                     writeln!(console, "Motion unlocked").ok();
                                 });
 
-                                ctx.local.gc.reset();
+                                ctx.local.gate_control.reset();
                                 ctx.shared.gate_lock.lock(|gate_lock| gate_lock.unlock());
                             }
                         }
 
-                        if frame.pdu()[4] & 0b00000001 == 1 {
-                            ctx.local.gc.reset();
+                        if frame.pdu()[4] & 0b11 == 1 {
+                            ctx.local.gate_control.reset();
                         }
                     }
                 }
@@ -451,44 +451,68 @@ mod app {
                     if frame.pdu()[0..2] != [0xff, 0xff] {
                         let gate_value = i16::from_le_bytes(frame.pdu()[0..2].try_into().unwrap());
 
-                        ctx.local.gc.gate0.set_value(valve_value(gate_value));
+                        ctx.local
+                            .gate_control
+                            .gate0
+                            .set_value(valve_value(gate_value));
                     }
                     if frame.pdu()[2..4] != [0xff, 0xff] {
                         let gate_value = i16::from_le_bytes(frame.pdu()[2..4].try_into().unwrap());
 
-                        ctx.local.gc.gate1.set_value(valve_value32(gate_value));
+                        ctx.local
+                            .gate_control
+                            .gate1
+                            .set_value(valve_value32(gate_value));
                     }
                     if frame.pdu()[4..6] != [0xff, 0xff] {
                         let gate_value = i16::from_le_bytes(frame.pdu()[4..6].try_into().unwrap());
 
-                        ctx.local.gc.gate2.set_value(valve_value32(gate_value));
+                        ctx.local
+                            .gate_control
+                            .gate2
+                            .set_value(valve_value32(gate_value));
                     }
                     if frame.pdu()[6..8] != [0xff, 0xff] {
                         let gate_value = i16::from_le_bytes(frame.pdu()[6..8].try_into().unwrap());
 
-                        ctx.local.gc.gate3.set_value(valve_value(gate_value));
+                        ctx.local
+                            .gate_control
+                            .gate3
+                            .set_value(valve_value(gate_value));
                     }
                 }
                 vecraft::j1939::PGN::Other(41_216) => {
                     if frame.pdu()[0..2] != [0xff, 0xff] {
                         let gate_value = i16::from_le_bytes(frame.pdu()[0..2].try_into().unwrap());
 
-                        ctx.local.gc.gate4.set_value(valve_value(gate_value));
+                        ctx.local
+                            .gate_control
+                            .gate4
+                            .set_value(valve_value(gate_value));
                     }
                     if frame.pdu()[2..4] != [0xff, 0xff] {
                         let gate_value = i16::from_le_bytes(frame.pdu()[2..4].try_into().unwrap());
 
-                        ctx.local.gc.gate5.set_value(valve_value(gate_value));
+                        ctx.local
+                            .gate_control
+                            .gate5
+                            .set_value(valve_value(gate_value));
                     }
                     if frame.pdu()[4..6] != [0xff, 0xff] {
                         let gate_value = i16::from_le_bytes(frame.pdu()[4..6].try_into().unwrap());
 
-                        ctx.local.gc.gate6.set_value(valve_value(gate_value));
+                        ctx.local
+                            .gate_control
+                            .gate6
+                            .set_value(valve_value(gate_value));
                     }
                     if frame.pdu()[6..8] != [0xff, 0xff] {
                         let gate_value = i16::from_le_bytes(frame.pdu()[6..8].try_into().unwrap());
 
-                        ctx.local.gc.gate7.set_value(valve_value(gate_value));
+                        ctx.local
+                            .gate_control
+                            .gate7
+                            .set_value(valve_value(gate_value));
                     }
                 }
                 _ => {}

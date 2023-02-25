@@ -142,18 +142,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ems"
-version = "0.4.0"
-dependencies = [
- "cortex-m-rtic",
- "fdcan",
- "panic-halt",
- "stm32h7xx-hal",
- "systick-monotonic",
- "vecraft",
-]
-
-[[package]]
 name = "ems-ecu"
 version = "0.4.0"
 dependencies = [
