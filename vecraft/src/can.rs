@@ -68,6 +68,7 @@ impl<I: fdcan::Instance, P: stm32h7xx_hal::hal::digital::v2::OutputPin> CanBuild
 
         fdcan.enable_interrupt_line(InterruptLine::_0, true);
         fdcan.enable_interrupt(Interrupt::RxFifo0NewMsg);
+        fdcan.enable_interrupt(Interrupt::WarningStatus);
         fdcan.enable_interrupt(Interrupt::ErrPassive);
         fdcan.enable_interrupt(Interrupt::BusOff);
 
@@ -125,9 +126,14 @@ where
     pub fn is_bus_error(&mut self) -> bool {
         let bus_error = self
             .0
-            .has_interrupt(fdcan::interrupt::Interrupt::ErrPassive)
+            .has_interrupt(fdcan::interrupt::Interrupt::WarningStatus)
+            || self
+                .0
+                .has_interrupt(fdcan::interrupt::Interrupt::ErrPassive)
             || self.0.has_interrupt(fdcan::interrupt::Interrupt::BusOff);
 
+        self.0
+            .clear_interrupt(fdcan::interrupt::Interrupt::WarningStatus);
         self.0
             .clear_interrupt(fdcan::interrupt::Interrupt::ErrPassive);
         self.0.clear_interrupt(fdcan::interrupt::Interrupt::BusOff);
