@@ -102,6 +102,10 @@ impl GateLock {
         self.lockout0.set_high();
         self.lockout1.set_high();
     }
+
+    pub fn is_locked(&self) -> bool {
+        self.lockout0.is_set_low() && self.lockout1.is_set_low()
+    }
 }
 
 pub struct GateControl {

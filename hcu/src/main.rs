@@ -297,32 +297,18 @@ mod app {
         });
     }
 
-    #[task(shared = [state, canbus1, console])]
+    #[task(shared = [state, canbus1, gate_lock])]
     fn firmware_state_broadcast(mut ctx: firmware_state_broadcast::Context) {
         let state = ctx.shared.state.lock(|state| state.state());
         let state_subclass = 0;
 
         let uptime = monotonics::now().duration_since_epoch();
 
-        let seconds = uptime.to_secs() % 60;
-        let minutes = uptime.to_minutes() % 60;
-        let hours = uptime.to_hours() % 24;
-
-        ctx.shared.console.lock(|console| {
-            use core::fmt::Write;
-
-            writeln!(
-                console,
-                "[{:02}:{:02}:{:02}] State: {}",
-                hours, minutes, seconds, state
-            )
-            .ok();
-        });
+        let is_locked = ctx.shared.gate_lock.lock(|gate_lock| gate_lock.is_locked());
 
         let timestamp = uptime.to_secs() as u32;
 
-        let id = vecraft::j1939::IdBuilder::from_pgn(vecraft::j1939::PGN::Other(65_282))
-            .priority(7)
+        let id = vecraft::j1939::IdBuilder::from_pgn(vecraft::j1939::PGN::Other(65_288))
             .sa(crate::NET_ADDRESS)
             .build();
 
@@ -330,7 +316,7 @@ mod app {
             .copy_from_slice(&[
                 state.as_byte(),
                 state_subclass,
-                0xff,
+                is_locked as u8,
                 0xff,
                 timestamp.to_le_bytes()[0],
                 timestamp.to_le_bytes()[1],
@@ -341,7 +327,7 @@ mod app {
 
         ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
 
-        firmware_state_broadcast::spawn_after(500.millis().into()).ok();
+        firmware_state_broadcast::spawn_after(50.millis().into()).ok();
     }
 
     fn valve_value(value: i16) -> vecraft::lsgc::GateSide<u16, u16> {
@@ -365,14 +351,13 @@ mod app {
 
         if is_bus_error {
             ctx.shared.state.lock(|state| state.set_bus_error(true));
+            ctx.shared.gate_lock.lock(|gate_lock| gate_lock.lock());
 
             ctx.shared.console.lock(|console| {
                 use core::fmt::Write;
 
                 writeln!(console, "Motion locked due to bus error").ok();
             });
-
-            ctx.shared.gate_lock.lock(|gate_lock| gate_lock.lock());
         }
 
         while let Some(frame) = ctx.shared.canbus1.lock(|canbus1| canbus1.recv()) {
