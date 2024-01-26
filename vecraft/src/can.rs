@@ -157,7 +157,11 @@ where
         let mut builder = j1939::FrameBuilder::default();
 
         if let Some((id, len)) = self.read(builder.as_mut()) {
-            builder = builder.id(j1939::Id::new(id)).set_len(len);
+            if len > 8 {
+                return None;
+            }
+
+            builder = builder.id(j1939::Id::new(id)).set_len(8);
             Some(builder.build())
         } else {
             None
