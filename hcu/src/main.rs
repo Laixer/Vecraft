@@ -215,7 +215,9 @@ mod app {
         };
         gate_control.reset();
 
+        #[cfg(debug_assertions)]
         motd::spawn().ok();
+
         firmware_state::spawn().ok();
         firmware_state_broadcast::spawn_after(500.millis().into()).ok();
 
@@ -291,6 +293,7 @@ mod app {
     fn watchdog_early_warning(mut ctx: watchdog_early_warning::Context) {
         ctx.shared.gate_lock.lock(|gate_lock| gate_lock.lock());
 
+        #[cfg(debug_assertions)]
         ctx.shared.console.lock(|console| {
             use core::fmt::Write;
 
@@ -333,14 +336,14 @@ mod app {
 
     fn valve_value(value: i16) -> vecraft::lsgc::GateSide<u16, u16> {
         match value {
-            v if v == 0 => vecraft::lsgc::GateSide::Hold(0, 0),
+            0 => vecraft::lsgc::GateSide::Hold(0, 0),
             v if v.is_positive() => vecraft::lsgc::GateSide::Up(value as u16),
             _ => vecraft::lsgc::GateSide::Down((value + 1).abs() as u16),
         }
     }
     fn valve_value32(value: i16) -> vecraft::lsgc::GateSide<u32, u32> {
         match value {
-            v if v == 0 => vecraft::lsgc::GateSide::Hold(0, 0),
+            0 => vecraft::lsgc::GateSide::Hold(0, 0),
             v if v.is_positive() => vecraft::lsgc::GateSide::Up(value as u32),
             _ => vecraft::lsgc::GateSide::Down((value + 1).abs() as u32),
         }
@@ -354,6 +357,7 @@ mod app {
             ctx.shared.state.lock(|state| state.set_bus_error(true));
             ctx.shared.gate_lock.lock(|gate_lock| gate_lock.lock());
 
+            #[cfg(debug_assertions)]
             ctx.shared.console.lock(|console| {
                 use core::fmt::Write;
 
@@ -407,24 +411,27 @@ mod app {
                 vecraft::j1939::PGN::ProprietarilyConfigurableMessage3 => {
                     if frame.pdu()[0] == b'Z' && frame.pdu()[1] == b'C' {
                         if frame.pdu()[3] & 0b11 == 0 {
+                            ctx.shared.gate_lock.lock(|gate_lock| gate_lock.lock());
+                            ctx.local.gate_control.reset();
+
+                            #[cfg(debug_assertions)]
                             ctx.shared.console.lock(|console| {
                                 use core::fmt::Write;
 
                                 writeln!(console, "Motion locked").ok();
                             });
-
-                            ctx.shared.gate_lock.lock(|gate_lock| gate_lock.lock());
                         } else if frame.pdu()[3] & 0b11 == 1 {
                             let state = ctx.shared.state.lock(|state| state.state());
                             if state == vecraft::state::State::Nominal {
+                                ctx.shared.gate_lock.lock(|gate_lock| gate_lock.unlock());
+                                ctx.local.gate_control.reset();
+
+                                #[cfg(debug_assertions)]
                                 ctx.shared.console.lock(|console| {
                                     use core::fmt::Write;
 
                                     writeln!(console, "Motion unlocked").ok();
                                 });
-
-                                ctx.local.gate_control.reset();
-                                ctx.shared.gate_lock.lock(|gate_lock| gate_lock.unlock());
                             }
                         }
 
