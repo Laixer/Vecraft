@@ -194,7 +194,7 @@ checksum = "8a9ee70c43aaf417c914396645a0fa852624801b24ebb7ae78fe8272889ac888"
 
 [[package]]
 name = "hcu"
-version = "0.4.9"
+version = "0.5.0"
 dependencies = [
  "cortex-m-rtic",
  "fdcan",
@@ -513,7 +513,7 @@ checksum = "77439c1b53d2303b20d9459b1ade71a83c716e3f9c34f3228c00e6f185d6c002"
 
 [[package]]
 name = "vecraft"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "cortex-m-rtic",
  "fdcan",

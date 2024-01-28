@@ -9,7 +9,7 @@ systick-monotonic = "1.0"
 cortex-m-rtic = { version = "1.1.4" }
 stm32h7xx-hal = { version = "0.15.1", features = ["stm32h743v", "rt", "can", "usb_hs"] }
 fdcan = { version = "0.2.0", features = ["fdcan_h7"] }
-vecraft = { version = "0.1.0", path = "../vecraft" }
+vecraft = { version = "0.2.0", path = "../vecraft" }
 usb-device = "0.2.9"
 
 [[bin]]
