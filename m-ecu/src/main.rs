@@ -29,7 +29,7 @@ mod app {
     use stm32h7xx_hal::gpio::{self};
     use stm32h7xx_hal::prelude::*;
     use stm32h7xx_hal::rcc;
-    use stm32h7xx_hal::watchdog::SystemWindowWatchdog;
+    use stm32h7xx_hal::system_watchdog::SystemWindowWatchdog;
     use systick_monotonic::Systick;
 
     /// 100 Hz / 10 ms granularity
@@ -83,10 +83,10 @@ mod app {
             .freeze(pwrcfg, &ctx.device.SYSCFG);
 
         // Switch adc_ker_ck_input multiplexer to per_ck
-        ccdr.peripheral.kernel_adc_clk_mux(rcc::rec::AdcClkSel::PER);
+        ccdr.peripheral.kernel_adc_clk_mux(rcc::rec::AdcClkSel::Per);
 
         ccdr.peripheral
-            .kernel_usart234578_clk_mux(rcc::rec::Usart234578ClkSel::PLL3_Q);
+            .kernel_usart234578_clk_mux(rcc::rec::Usart234578ClkSel::Pll3Q);
 
         let mut watchdog = SystemWindowWatchdog::new(ctx.device.WWDG, &ccdr);
 
@@ -113,7 +113,7 @@ mod app {
         let fdcan_prec = ccdr
             .peripheral
             .FDCAN
-            .kernel_clk_mux(rcc::rec::FdcanClkSel::PLL1_Q);
+            .kernel_clk_mux(rcc::rec::FdcanClkSel::Pll1Q);
 
         let canbus1 = {
             let rx = gpiod.pd0.into_alternate().speed(gpio::Speed::VeryHigh);
@@ -132,10 +132,16 @@ mod app {
         // ADC
         use stm32h7xx_hal::adc::{Adc, AdcSampleTime, Resolution};
 
-        let mut adc1 =
-            Adc::adc1(ctx.device.ADC1, &mut k, ccdr.peripheral.ADC12, &ccdr.clocks).enable();
+        let mut adc1 = Adc::adc1(
+            ctx.device.ADC1,
+            4.MHz(),
+            &mut k,
+            ccdr.peripheral.ADC12,
+            &ccdr.clocks,
+        )
+        .enable();
 
-        adc1.set_resolution(Resolution::TWELVEBITV);
+        adc1.set_resolution(Resolution::TwelveBit);
         adc1.set_sample_time(AdcSampleTime::T_387);
 
         let channel1 = gpioc.pc2.into_analog();

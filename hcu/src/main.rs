@@ -27,7 +27,7 @@ mod app {
     use stm32h7xx_hal::gpio::{self};
     use stm32h7xx_hal::prelude::*;
     use stm32h7xx_hal::rcc;
-    use stm32h7xx_hal::watchdog::{Event::EarlyWakeup, SystemWindowWatchdog};
+    use stm32h7xx_hal::system_watchdog::{Event::EarlyWakeup, SystemWindowWatchdog};
     use systick_monotonic::Systick;
 
     /// 100 Hz / 10 ms granularity
@@ -73,10 +73,10 @@ mod app {
             .freeze(pwrcfg, &ctx.device.SYSCFG);
 
         // Switch adc_ker_ck_input multiplexer to per_ck
-        ccdr.peripheral.kernel_adc_clk_mux(rcc::rec::AdcClkSel::PER);
+        ccdr.peripheral.kernel_adc_clk_mux(rcc::rec::AdcClkSel::Per);
 
         ccdr.peripheral
-            .kernel_usart234578_clk_mux(rcc::rec::Usart234578ClkSel::PLL3_Q);
+            .kernel_usart234578_clk_mux(rcc::rec::Usart234578ClkSel::Pll3Q);
 
         let mut watchdog = SystemWindowWatchdog::new(ctx.device.WWDG, &ccdr);
 
@@ -103,7 +103,7 @@ mod app {
         let fdcan_prec = ccdr
             .peripheral
             .FDCAN
-            .kernel_clk_mux(rcc::rec::FdcanClkSel::PLL1_Q);
+            .kernel_clk_mux(rcc::rec::FdcanClkSel::Pll1Q);
 
         let canbus1 = {
             let rx = gpiod.pd0.into_alternate().speed(gpio::Speed::VeryHigh);
@@ -201,8 +201,9 @@ mod app {
             lockout0: pwr_swtich1,
             lockout1: pwr_swtich2,
         };
+        gate_lock.lock();
 
-        let gate_control = vecraft::lsgc::GateControl {
+        let mut gate_control = vecraft::lsgc::GateControl {
             gate0,
             gate1,
             gate2,
@@ -212,7 +213,7 @@ mod app {
             gate6,
             gate7,
         };
-        gate_lock.lock();
+        gate_control.reset();
 
         motd::spawn().ok();
         firmware_state::spawn().ok();

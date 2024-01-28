@@ -7,7 +7,7 @@ edition = "2021"
 panic-halt = "0.2.0"
 systick-monotonic = "1.0"
 cortex-m-rtic = { version = "1.1.4" }
-stm32h7xx-hal = { version = "0.12.2", features = ["stm32h743v", "rt", "can"] }
-fdcan = { version = "0.1.0", features = ["fdcan_h7"] }
+stm32h7xx-hal = { version = "0.15.1", features = ["stm32h743v", "rt", "can"] }
+fdcan = { version = "0.2.0", features = ["fdcan_h7"] }
 j1939 = { git = "https://github.com/Laixer/J1939", features = ["can"] }
 usb-device = "0.2.9"

@@ -48,10 +48,10 @@ mod app {
             stm32h7xx_hal::can::Can<stm32h7xx_hal::stm32::FDCAN1>,
             fdcan::NormalOperationMode,
         >,
-        canbus2: vecraft::can::Can<
-            stm32h7xx_hal::can::Can<stm32h7xx_hal::stm32::FDCAN2>,
-            fdcan::NormalOperationMode,
-        >,
+        // canbus2: vecraft::can::Can<
+        //     stm32h7xx_hal::can::Can<stm32h7xx_hal::stm32::FDCAN2>,
+        //     fdcan::NormalOperationMode,
+        // >,
         usb: usb_device::prelude::UsbDevice<
             'static,
             stm32h7xx_hal::usb_hs::UsbBus<stm32h7xx_hal::usb_hs::USB2>,
@@ -94,10 +94,10 @@ mod app {
             .freeze(pwrcfg, &ctx.device.SYSCFG);
 
         ccdr.peripheral
-            .kernel_usb_clk_mux(rcc::rec::UsbClkSel::PLL3_Q);
+            .kernel_usb_clk_mux(rcc::rec::UsbClkSel::Pll3Q);
 
         ccdr.peripheral
-            .kernel_usart234578_clk_mux(rcc::rec::Usart234578ClkSel::PLL3_Q);
+            .kernel_usart234578_clk_mux(rcc::rec::Usart234578ClkSel::Pll3Q);
 
         // GPIO
         let gpioa = ctx.device.GPIOA.split(ccdr.peripheral.GPIOA);
@@ -122,7 +122,7 @@ mod app {
         let fdcan_prec = ccdr
             .peripheral
             .FDCAN
-            .kernel_clk_mux(rcc::rec::FdcanClkSel::PLL1_Q);
+            .kernel_clk_mux(rcc::rec::FdcanClkSel::Pll1Q);
 
         let canbus1 = {
             let rx = gpiod.pd0.into_alternate().speed(gpio::Speed::VeryHigh);
@@ -135,16 +135,16 @@ mod app {
                 .build()
         };
 
-        let canbus2 = {
-            let rx = gpiob.pb5.into_alternate().speed(gpio::Speed::VeryHigh);
-            let tx = gpiob.pb6.into_alternate().speed(gpio::Speed::VeryHigh);
+        // let canbus2 = {
+        // let rx = gpiob.pb5.into_alternate().speed(gpio::Speed::VeryHigh);
+        // let tx = gpiob.pb6.into_alternate().speed(gpio::Speed::VeryHigh);
 
-            let pd7 = gpiod.pd7.into_push_pull_output();
+        // let pd7 = gpiod.pd7.into_push_pull_output();
 
-            vecraft::can::CanBuilder::new(ctx.device.FDCAN2.fdcan_simple(tx, rx), pd7)
-                .set_bit_timing(vecraft::can::BITRATE_250K)
-                .build()
-        };
+        // vecraft::can::CanBuilder::new(ctx.device.FDCAN2.fdcan(tx, rx, fdcan_prec), pd7)
+        //     .set_bit_timing(vecraft::can::BITRATE_250K)
+        //     .build()
+        // };
 
         use usb_device::prelude::*;
 
@@ -188,7 +188,7 @@ mod app {
                 state: vecraft::state::System::boot(),
                 console,
                 canbus1,
-                canbus2,
+                // canbus2,
                 usb: device,
                 avic: inner,
             },
@@ -293,32 +293,32 @@ mod app {
         }
     }
 
-    #[task(binds = FDCAN2_IT0, priority = 3, shared = [canbus2, usb, avic, state])]
-    fn can2_event(mut ctx: can2_event::Context) {
-        let is_bus_error = ctx.shared.canbus2.lock(|canbus2| canbus2.is_bus_error());
+    // #[task(binds = FDCAN2_IT0, priority = 3, shared = [canbus2, usb, avic, state])]
+    // fn can2_event(mut ctx: can2_event::Context) {
+    //     let is_bus_error = ctx.shared.canbus2.lock(|canbus2| canbus2.is_bus_error());
 
-        if is_bus_error {
-            ctx.shared.state.lock(|state| state.set_bus_error(true));
-        }
+    //     if is_bus_error {
+    //         ctx.shared.state.lock(|state| state.set_bus_error(true));
+    //     }
 
-        while let Some(frame) = ctx.shared.canbus2.lock(|canbus1| canbus1.recv()) {
-            ctx.shared.usb.lock(|usb| {
-                if usb.state() == usb_device::device::UsbDeviceState::Configured {
-                    ctx.shared.avic.lock(|avic| {
-                        let frame =
-                            vecraft::usb_frame::FeameBuilder::with_extended_id(frame.id().as_raw())
-                                .data(frame.pdu())
-                                .build();
+    //     while let Some(frame) = ctx.shared.canbus2.lock(|canbus1| canbus1.recv()) {
+    //         ctx.shared.usb.lock(|usb| {
+    //             if usb.state() == usb_device::device::UsbDeviceState::Configured {
+    //                 ctx.shared.avic.lock(|avic| {
+    //                     let frame =
+    //                         vecraft::usb_frame::FeameBuilder::with_extended_id(frame.id().as_raw())
+    //                             .data(frame.pdu())
+    //                             .build();
 
-                        let _ = avic.write_frame(
-                            vecraft::usb_avic::ClassInterface::Interface1,
-                            frame.as_ref(),
-                        );
-                    });
-                }
-            });
-        }
-    }
+    //                     let _ = avic.write_frame(
+    //                         vecraft::usb_avic::ClassInterface::Interface1,
+    //                         frame.as_ref(),
+    //                     );
+    //                 });
+    //             }
+    //         });
+    //     }
+    // }
 
     #[task(binds = OTG_FS, priority = 2, shared = [canbus1, usb, avic, state, console])]
     fn usb_event(mut ctx: usb_event::Context) {

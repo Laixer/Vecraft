@@ -1,13 +1,14 @@
+[profile.release]
+lto = true        # better optimizations
+codegen-units = 1 # better optimizations
+opt-level = "s"   # optimize for size
+debug = true      # symbols are nice and they don't increase the size on Flash
+
 [workspace]
+resolver = "2"
 members = [
   "hcu",
   "m-ecu",
   "v-ecu",
   "vecraft"
 ]
-
-[profile.release]
-opt-level = "s"   # optimize for size
-codegen-units = 1 # better optimizations
-debug = true      # symbols are nice and they don't increase the size on Flash
-lto = true        # better optimizations

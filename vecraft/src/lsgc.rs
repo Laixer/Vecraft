@@ -1,3 +1,8 @@
+use stm32h7xx_hal::{
+    device::{TIM1, TIM2, TIM3, TIM4},
+    pwm::{ComplementaryDisabled, ComplementaryImpossible, Pwm},
+};
+
 pub enum GateSide<T1, T2> {
     Up(T1),
     Down(T2),
@@ -44,43 +49,14 @@ where
     }
 }
 
-use stm32h7xx_hal::{
-    device::{TIM1, TIM2, TIM3, TIM4},
-    pwm::{ActiveHigh, ComplementaryDisabled, ComplementaryImpossible, Pwm, C1, C2, C3, C4},
-};
-
-pub type Gate0 = Gate<
-    Pwm<TIM4, C1, ComplementaryImpossible, ActiveHigh, ActiveHigh>,
-    Pwm<TIM4, C2, ComplementaryImpossible, ActiveHigh, ActiveHigh>,
->;
-pub type Gate1 = Gate<
-    Pwm<TIM2, C2, ComplementaryImpossible, ActiveHigh, ActiveHigh>,
-    Pwm<TIM2, C1, ComplementaryImpossible, ActiveHigh, ActiveHigh>,
->;
-pub type Gate2 = Gate<
-    Pwm<TIM2, C4, ComplementaryImpossible, ActiveHigh, ActiveHigh>,
-    Pwm<TIM2, C3, ComplementaryImpossible, ActiveHigh, ActiveHigh>,
->;
-pub type Gate3 = Gate<
-    Pwm<TIM4, C3, ComplementaryImpossible, ActiveHigh, ActiveHigh>,
-    Pwm<TIM4, C4, ComplementaryImpossible, ActiveHigh, ActiveHigh>,
->;
-pub type Gate4 = Gate<
-    Pwm<TIM3, C1, ComplementaryImpossible, ActiveHigh, ActiveHigh>,
-    Pwm<TIM3, C2, ComplementaryImpossible, ActiveHigh, ActiveHigh>,
->;
-pub type Gate5 = Gate<
-    Pwm<TIM1, C3, ComplementaryDisabled, ActiveHigh, ActiveHigh>,
-    Pwm<TIM1, C4, ComplementaryImpossible, ActiveHigh, ActiveHigh>,
->;
-pub type Gate6 = Gate<
-    Pwm<TIM1, C1, ComplementaryDisabled, ActiveHigh, ActiveHigh>,
-    Pwm<TIM1, C2, ComplementaryDisabled, ActiveHigh, ActiveHigh>,
->;
-pub type Gate7 = Gate<
-    Pwm<TIM3, C3, ComplementaryImpossible, ActiveHigh, ActiveHigh>,
-    Pwm<TIM3, C4, ComplementaryImpossible, ActiveHigh, ActiveHigh>,
->;
+pub type Gate0 = Gate<Pwm<TIM4, 0, ComplementaryImpossible>, Pwm<TIM4, 1, ComplementaryImpossible>>;
+pub type Gate1 = Gate<Pwm<TIM2, 1, ComplementaryImpossible>, Pwm<TIM2, 0, ComplementaryImpossible>>;
+pub type Gate2 = Gate<Pwm<TIM2, 3, ComplementaryImpossible>, Pwm<TIM2, 2, ComplementaryImpossible>>;
+pub type Gate3 = Gate<Pwm<TIM4, 2, ComplementaryImpossible>, Pwm<TIM4, 3, ComplementaryImpossible>>;
+pub type Gate4 = Gate<Pwm<TIM3, 0, ComplementaryImpossible>, Pwm<TIM3, 1, ComplementaryImpossible>>;
+pub type Gate5 = Gate<Pwm<TIM1, 2, ComplementaryDisabled>, Pwm<TIM1, 3, ComplementaryImpossible>>;
+pub type Gate6 = Gate<Pwm<TIM1, 0, ComplementaryDisabled>, Pwm<TIM1, 1, ComplementaryDisabled>>;
+pub type Gate7 = Gate<Pwm<TIM3, 2, ComplementaryImpossible>, Pwm<TIM3, 3, ComplementaryImpossible>>;
 
 pub type PinLockout0 =
     stm32h7xx_hal::gpio::PD11<stm32h7xx_hal::gpio::Output<stm32h7xx_hal::gpio::PushPull>>;

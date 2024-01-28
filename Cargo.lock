@@ -64,6 +64,7 @@ checksum = "8ec610d8f49840a5b376c69663b6369e71f4b34484b9b2eb29fb918d92516cb9"
 dependencies = [
  "bare-metal 0.2.5",
  "bitfield",
+ "critical-section",
  "embedded-hal",
  "volatile-register",
 ]
@@ -142,16 +143,23 @@ dependencies = [
 ]
 
 [[package]]
-name = "fdcan"
-version = "0.1.2"
+name = "embedded-storage"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e5c0c327e4fb2d35445b850b4890bb5a1f14e78be0e1fd4ab3c5fa895819c465"
+checksum = "a21dea9854beb860f3062d10228ce9b976da520a73474aed3171ec276bc0c032"
+
+[[package]]
+name = "fdcan"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "553fb8420a8ca433ed032a3f284deeb95c12e4d3d25cdc15196669a27b2ae34b"
 dependencies = [
  "bitflags",
  "nb 1.1.0",
  "paste",
  "static_assertions",
  "vcell",
+ "volatile-register",
 ]
 
 [[package]]
@@ -222,7 +230,7 @@ dependencies = [
 [[package]]
 name = "j1939"
 version = "0.1.13"
-source = "git+https://github.com/Laixer/J1939#b481d3dc4668036c32b1370b2a9bd7c1753b15b2"
+source = "git+https://github.com/Laixer/J1939#6711fce48547f9bc3dca82534ed6136e217eedcb"
 
 [[package]]
 name = "lock_api"
@@ -407,9 +415,9 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "stm32h7"
-version = "0.14.0"
+version = "0.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6f0faa648e03579befdd7267ab5c669624729028001fcf3c973832f53e310a06"
+checksum = "362f288cd8341e9209587b889c385f323e82fc237b60c272868965bb879bb9b1"
 dependencies = [
  "bare-metal 1.0.0",
  "cortex-m",
@@ -419,20 +427,22 @@ dependencies = [
 
 [[package]]
 name = "stm32h7xx-hal"
-version = "0.12.2"
+version = "0.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "05ed63600f7ec63598de2c7645fcc0745133921d77fe6dd92b94a5f45ff9669e"
+checksum = "e08bcfbdbe4458133f2fd55994a5c4f1b4bf28084f0218e93cdbc19d7c70219f"
 dependencies = [
  "bare-metal 1.0.0",
  "cast",
  "cortex-m",
  "embedded-dma",
  "embedded-hal",
+ "embedded-storage",
  "fdcan",
  "fugit",
  "nb 1.1.0",
  "paste",
  "stm32h7",
+ "synopsys-usb-otg",
  "void",
 ]
 
@@ -445,6 +455,18 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-ident",
+]
+
+[[package]]
+name = "synopsys-usb-otg"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "678f3707a7b1fd4863023292c42f73c6bab0e9b0096f41ae612d1af0ff221b45"
+dependencies = [
+ "cortex-m",
+ "embedded-hal",
+ "usb-device",
+ "vcell",
 ]
 
 [[package]]
@@ -469,6 +491,19 @@ name = "usb-device"
 version = "0.2.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1f6cc3adc849b5292b4075fc0d5fdcf2f24866e88e336dd27a8943090a520508"
+
+[[package]]
+name = "v-ecu"
+version = "0.4.5"
+dependencies = [
+ "cortex-m-rtic",
+ "fdcan",
+ "panic-halt",
+ "stm32h7xx-hal",
+ "systick-monotonic",
+ "usb-device",
+ "vecraft",
+]
 
 [[package]]
 name = "vcell"
