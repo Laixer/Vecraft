@@ -253,23 +253,17 @@ mod app {
 
     #[task(shared = [canbus1, console])]
     fn bootstrap(mut ctx: bootstrap::Context) {
-        let id = vecraft::j1939::IdBuilder::from_pgn(vecraft::j1939::PGN::AddressClaimed)
-            .sa(crate::NET_ADDRESS)
-            .da(0xff)
+        // TODO: Make an identity number based on debug and firmware version
+        let name = vecraft::j1939::NameBuilder::default()
+            .identity_number(0x1)
+            .manufacturer_code(0x717)
+            .function_instance(1)
+            .ecu_instance(1)
+            .function(0x3A)
+            .vehicle_system(9)
             .build();
 
-        let frame = vecraft::j1939::FrameBuilder::new(id)
-            .copy_from_slice(&[
-                0x01,         // Identity Number
-                0x00,         // Identity Number
-                0b1110_0000,  // Manufacturer Code
-                0b1110_0010,  // Manufacturer Code
-                0b_0000_1001, // Function Instance | ECU Instance
-                0x3A,         // Function
-                0b_0000_1001, // Vehicle System
-                0b_0000_0001, // Arbitrary Address Capable | Industry Group | Vehicle System Instance
-            ])
-            .build();
+        let frame = vecraft::j1939::protocol::address_claimed(crate::NET_ADDRESS, name);
 
         ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
 
@@ -390,6 +384,7 @@ mod app {
                     let pgn =
                         vecraft::j1939::PGN::from_le_bytes(frame.pdu()[0..3].try_into().unwrap());
 
+                    // TODO: Add NAME request handling
                     if pgn == vecraft::j1939::PGN::SoftwareIdentification {
                         let id = vecraft::j1939::IdBuilder::from_pgn(
                             vecraft::j1939::PGN::SoftwareIdentification,
