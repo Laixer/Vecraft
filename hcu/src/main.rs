@@ -223,11 +223,8 @@ mod app {
         };
         gate_control.reset();
 
-        #[cfg(debug_assertions)]
-        motd::spawn().ok();
-
+        bootstrap::spawn().ok();
         firmware_state::spawn().ok();
-        firmware_state_broadcast::spawn_after(500.millis().into()).ok();
 
         watchdog.start(75.millis());
         watchdog.listen(EarlyWakeup);
@@ -252,8 +249,29 @@ mod app {
         )
     }
 
-    #[task(shared = [console])]
-    fn motd(mut ctx: motd::Context) {
+    #[task(shared = [canbus1, console])]
+    fn bootstrap(mut ctx: bootstrap::Context) {
+        let id = vecraft::j1939::IdBuilder::from_pgn(vecraft::j1939::PGN::AddressClaimed)
+            .sa(crate::NET_ADDRESS)
+            .da(0xff)
+            .build();
+
+        let frame = vecraft::j1939::FrameBuilder::new(id)
+            .copy_from_slice(&[
+                0x09,         // 0x09
+                0x03,         // 0x03
+                0x4B,         // 0x4B
+                0x24,         // 0x24
+                0x11,         // 0x11
+                0x05,         // 0x05
+                0b_0000_0110, // 0x06
+                0b_1000_0100, // 0x84
+            ])
+            .build();
+
+        ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
+
+        #[cfg(debug_assertions)]
         ctx.shared.console.lock(|console| {
             use core::fmt::Write;
 
@@ -294,35 +312,14 @@ mod app {
 
         ctx.local.watchdog.feed();
 
-        firmware_state::spawn_after(50.millis().into()).ok();
-    }
-
-    #[task(binds = WWDG1, shared = [console, gate_lock])]
-    fn watchdog_early_warning(mut ctx: watchdog_early_warning::Context) {
-        ctx.shared.gate_lock.lock(|gate_lock| gate_lock.lock());
-
-        #[cfg(debug_assertions)]
-        ctx.shared.console.lock(|console| {
-            use core::fmt::Write;
-
-            writeln!(console, "Soft fault occurred; resetting hardware").ok();
-        });
-    }
-
-    #[task(shared = [state, canbus1, gate_lock])]
-    fn firmware_state_broadcast(mut ctx: firmware_state_broadcast::Context) {
-        let state = ctx.shared.state.lock(|state| state.state());
-        let state_subclass = 0;
-
-        let uptime = monotonics::now().duration_since_epoch();
-
-        let is_locked = ctx.shared.gate_lock.lock(|gate_lock| gate_lock.is_locked());
-
-        let timestamp = uptime.to_secs() as u32;
-
         let id = vecraft::j1939::IdBuilder::from_pgn(vecraft::j1939::PGN::Other(65_288))
             .sa(crate::NET_ADDRESS)
             .build();
+
+        let uptime = monotonics::now().duration_since_epoch();
+        let is_locked = ctx.shared.gate_lock.lock(|gate_lock| gate_lock.is_locked());
+        let timestamp = uptime.to_secs() as u32;
+        let state_subclass = 0;
 
         let frame = vecraft::j1939::FrameBuilder::new(id)
             .copy_from_slice(&[
@@ -339,7 +336,19 @@ mod app {
 
         ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
 
-        firmware_state_broadcast::spawn_after(50.millis().into()).ok();
+        firmware_state::spawn_after(50.millis().into()).ok();
+    }
+
+    #[task(binds = WWDG1, shared = [console, gate_lock])]
+    fn watchdog_early_warning(mut ctx: watchdog_early_warning::Context) {
+        ctx.shared.gate_lock.lock(|gate_lock| gate_lock.lock());
+
+        #[cfg(debug_assertions)]
+        ctx.shared.console.lock(|console| {
+            use core::fmt::Write;
+
+            writeln!(console, "Soft fault occurred; resetting hardware").ok();
+        });
     }
 
     fn valve_value(value: i16) -> vecraft::lsgc::GateSide<u16, u16> {
