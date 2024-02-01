@@ -230,7 +230,7 @@ dependencies = [
 [[package]]
 name = "j1939"
 version = "0.1.13"
-source = "git+https://github.com/Laixer/J1939#6711fce48547f9bc3dca82534ed6136e217eedcb"
+source = "git+https://github.com/Laixer/J1939#ee52e893939355361842238f915a14715f70cba9"
 
 [[package]]
 name = "lock_api"
