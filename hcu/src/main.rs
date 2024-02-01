@@ -8,8 +8,10 @@ use panic_halt as _;
 use stm32h7xx_hal::time::Hertz;
 
 /// Glonax firmware name.
+#[cfg(debug_assertions)]
 const PKG_NAME: &str = env!("CARGO_PKG_NAME");
 /// Glonax firmware version.
+#[cfg(debug_assertions)]
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// Glonax firmware major version.
 const VERSION_MAJOR: &str = env!("CARGO_PKG_VERSION_MAJOR");
@@ -258,14 +260,14 @@ mod app {
 
         let frame = vecraft::j1939::FrameBuilder::new(id)
             .copy_from_slice(&[
-                0x09,         // 0x09
-                0x03,         // 0x03
-                0x4B,         // 0x4B
-                0x24,         // 0x24
-                0x11,         // 0x11
-                0x05,         // 0x05
-                0b_0000_0110, // 0x06
-                0b_1000_0100, // 0x84
+                0x01,         // Identity Number
+                0x00,         // Identity Number
+                0b1110_0000,  // Manufacturer Code
+                0b1110_0010,  // Manufacturer Code
+                0b_0000_1001, // Function Instance | ECU Instance
+                0x3A,         // Function
+                0b_0000_1001, // Vehicle System
+                0b_0000_0001, // Arbitrary Address Capable | Industry Group | Vehicle System Instance
             ])
             .build();
 
