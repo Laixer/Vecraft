@@ -50,7 +50,9 @@ mod app {
     use stm32h7xx_hal::system_watchdog::{Event::EarlyWakeup, SystemWindowWatchdog};
 
     use vecraft::fdcan;
-    use vecraft::j1939::{protocol, FrameBuilder, IdBuilder, NameBuilder, PDU_NOT_AVAILABLE, PGN};
+    use vecraft::j1939::{
+        protocol, FrameBuilder, IdBuilder, NameBuilder, FIELD_DELIMITER, PDU_NOT_AVAILABLE, PGN,
+    };
     use vecraft::Systick;
 
     /// 100 Hz / 10 ms granularity
@@ -408,7 +410,7 @@ mod app {
                                     crate::PKG_VERSION_MAJOR.parse::<u8>().unwrap(),
                                     crate::PKG_VERSION_MINOR.parse::<u8>().unwrap(),
                                     crate::PKG_VERSION_PATCH.parse::<u8>().unwrap(),
-                                    b'*',
+                                    FIELD_DELIMITER,
                                     PDU_NOT_AVAILABLE,
                                     PDU_NOT_AVAILABLE,
                                     PDU_NOT_AVAILABLE,
