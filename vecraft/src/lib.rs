@@ -3,6 +3,7 @@
 #![no_main]
 #![no_std]
 
+pub use fdcan;
 pub use j1939;
 
 pub mod can;

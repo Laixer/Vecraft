@@ -197,7 +197,6 @@ name = "hcu"
 version = "0.5.1"
 dependencies = [
  "cortex-m-rtic",
- "fdcan",
  "panic-halt",
  "stm32h7xx-hal",
  "systick-monotonic",

@@ -40,6 +40,7 @@ mod app {
     use stm32h7xx_hal::system_watchdog::{Event::EarlyWakeup, SystemWindowWatchdog};
     use systick_monotonic::Systick;
 
+    use vecraft::fdcan;
     use vecraft::j1939::{protocol, FrameBuilder, IdBuilder, NameBuilder, PGN};
 
     /// 100 Hz / 10 ms granularity
@@ -265,9 +266,9 @@ mod app {
             .vehicle_system(9)
             .build();
 
-        let frame = protocol::address_claimed(crate::NET_ADDRESS, name);
-
-        ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
+        ctx.shared
+            .canbus1
+            .lock(|canbus1| canbus1.send(protocol::address_claimed(crate::NET_ADDRESS, name)));
 
         #[cfg(debug_assertions)]
         ctx.shared.console.lock(|console| {
@@ -406,9 +407,9 @@ mod app {
 
                         ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
                     } else {
-                        let frame = protocol::acknowledgement(crate::NET_ADDRESS, pgn);
-
-                        ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
+                        ctx.shared.canbus1.lock(|canbus1| {
+                            canbus1.send(protocol::acknowledgement(crate::NET_ADDRESS, pgn))
+                        });
                     }
                 }
                 PGN::ProprietarilyConfigurableMessage1 => {
