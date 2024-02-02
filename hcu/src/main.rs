@@ -396,7 +396,7 @@ mod app {
         while let Some(frame) = ctx.shared.canbus1.lock(|canbus1| canbus1.recv()) {
             match frame.id().pgn() {
                 PGN::Request => {
-                    let pgn = PGN::from_le_bytes([frame.pdu()[0], frame.pdu()[1], frame.pdu()[2]]);
+                    let pgn = protocol::request_from_pdu(frame.pdu());
 
                     match pgn {
                         PGN::SoftwareIdentification => {
