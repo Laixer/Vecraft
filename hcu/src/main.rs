@@ -12,13 +12,13 @@ use stm32h7xx_hal::time::Hertz;
 const PKG_NAME: &str = env!("CARGO_PKG_NAME");
 /// Glonax firmware version.
 #[cfg(debug_assertions)]
-const VERSION: &str = env!("CARGO_PKG_VERSION");
+const PKG_VERSION: &str = env!("CARGO_PKG_VERSION");
 /// Glonax firmware major version.
-const VERSION_MAJOR: &str = env!("CARGO_PKG_VERSION_MAJOR");
+const PKG_VERSION_MAJOR: &str = env!("CARGO_PKG_VERSION_MAJOR");
 /// Glonax firmware minor version.
-const VERSION_MINOR: &str = env!("CARGO_PKG_VERSION_MINOR");
+const PKG_VERSION_MINOR: &str = env!("CARGO_PKG_VERSION_MINOR");
 /// Glonax firmware patch version.
-const VERSION_PATCH: &str = env!("CARGO_PKG_VERSION_PATCH");
+const PKG_VERSION_PATCH: &str = env!("CARGO_PKG_VERSION_PATCH");
 
 /// High speed external clock frequency.
 const HSE: Hertz = Hertz::MHz(25);
@@ -30,17 +30,17 @@ const FDCAN_CLOCK: Hertz = Hertz::MHz(32);
 const USART_CLOCK: Hertz = Hertz::MHz(48);
 
 /// J1939 network address.
-const NET_ADDRESS: u8 = 0x4A;
+const J1939_ADDRESS: u8 = 0x4A;
 /// J1939 name manufacturer code.
-const NET_MANUFACTURER_CODE: u16 = 0x717;
+const J1939_NAME_MANUFACTURER_CODE: u16 = 0x717;
 /// J1939 name function instance.
-const NET_FUNCTION_INSTANCE: u8 = 1;
+const J1939_NAME_FUNCTION_INSTANCE: u8 = 1;
 /// J1939 name ECU instance.
-const NET_ECU_INSTANCE: u8 = 1;
+const J1939_NAME_ECU_INSTANCE: u8 = 1;
 /// J1939 name function.
-const NET_FUNCTION: u8 = 0x3A;
+const J1939_NAME_FUNCTION: u8 = 0x3A;
 /// J1939 name vehicle system.
-const NET_VEHICLE_SYSTEM: u8 = 9;
+const J1939_NAME_VEHICLE_SYSTEM: u8 = 9;
 
 #[rtic::app(device = stm32h7xx_hal::stm32, peripherals = true, dispatchers = [USART1, USART2])]
 mod app {
@@ -136,7 +136,7 @@ mod app {
 
             vecraft::can::CanBuilder::new(ctx.device.FDCAN1.fdcan(tx, rx, fdcan_prec), pd3)
                 .set_bit_timing(vecraft::can::BITRATE_250K)
-                .set_net_address_filter(crate::NET_ADDRESS)
+                .set_net_address_filter(crate::J1939_ADDRESS)
                 .build()
         };
 
@@ -269,16 +269,16 @@ mod app {
         // TODO: Make an identity number based on debug and firmware version
         let name = NameBuilder::default()
             .identity_number(0x1)
-            .manufacturer_code(crate::NET_MANUFACTURER_CODE)
-            .function_instance(crate::NET_FUNCTION_INSTANCE)
-            .ecu_instance(crate::NET_ECU_INSTANCE)
-            .function(crate::NET_FUNCTION)
-            .vehicle_system(crate::NET_VEHICLE_SYSTEM)
+            .manufacturer_code(crate::J1939_NAME_MANUFACTURER_CODE)
+            .function_instance(crate::J1939_NAME_FUNCTION_INSTANCE)
+            .ecu_instance(crate::J1939_NAME_ECU_INSTANCE)
+            .function(crate::J1939_NAME_FUNCTION)
+            .vehicle_system(crate::J1939_NAME_VEHICLE_SYSTEM)
             .build();
 
         ctx.shared
             .canbus1
-            .lock(|canbus1| canbus1.send(protocol::address_claimed(crate::NET_ADDRESS, name)));
+            .lock(|canbus1| canbus1.send(protocol::address_claimed(crate::J1939_ADDRESS, name)));
 
         #[cfg(debug_assertions)]
         ctx.shared.console.lock(|console| {
@@ -291,8 +291,8 @@ mod app {
             writeln!(console, r#"     (/\)(__(____)"#).ok();
             writeln!(console).ok();
             writeln!(console, "    Firmware : {}", crate::PKG_NAME).ok();
-            writeln!(console, "    Version  : {}", crate::VERSION).ok();
-            writeln!(console, "    Address  : 0x{:X?}", crate::NET_ADDRESS).ok();
+            writeln!(console, "    Version  : {}", crate::PKG_VERSION).ok();
+            writeln!(console, "    Address  : 0x{:X?}", crate::J1939_ADDRESS).ok();
             writeln!(console).ok();
             writeln!(console, "  Laixer Equipment B.V.").ok();
             writeln!(console, "   Copyright (C) 2024").ok();
@@ -322,7 +322,7 @@ mod app {
         ctx.local.watchdog.feed();
 
         let id = IdBuilder::from_pgn(PGN::Other(65_288))
-            .sa(crate::NET_ADDRESS)
+            .sa(crate::J1939_ADDRESS)
             .build();
 
         let uptime = monotonics::now().duration_since_epoch();
@@ -399,15 +399,15 @@ mod app {
                     match pgn {
                         PGN::SoftwareIdentification => {
                             let id = IdBuilder::from_pgn(PGN::SoftwareIdentification)
-                                .sa(crate::NET_ADDRESS)
+                                .sa(crate::J1939_ADDRESS)
                                 .build();
 
                             let frame = FrameBuilder::new(id)
                                 .copy_from_slice(&[
                                     0x01,
-                                    crate::VERSION_MAJOR.parse::<u8>().unwrap(),
-                                    crate::VERSION_MINOR.parse::<u8>().unwrap(),
-                                    crate::VERSION_PATCH.parse::<u8>().unwrap(),
+                                    crate::PKG_VERSION_MAJOR.parse::<u8>().unwrap(),
+                                    crate::PKG_VERSION_MINOR.parse::<u8>().unwrap(),
+                                    crate::PKG_VERSION_PATCH.parse::<u8>().unwrap(),
                                     b'*',
                                     0xff,
                                     0xff,
@@ -421,20 +421,20 @@ mod app {
                             // TODO: Make an identity number based on debug and firmware version
                             let name = NameBuilder::default()
                                 .identity_number(0x1)
-                                .manufacturer_code(crate::NET_MANUFACTURER_CODE)
-                                .function_instance(crate::NET_FUNCTION_INSTANCE)
-                                .ecu_instance(crate::NET_ECU_INSTANCE)
-                                .function(crate::NET_FUNCTION)
-                                .vehicle_system(crate::NET_VEHICLE_SYSTEM)
+                                .manufacturer_code(crate::J1939_NAME_MANUFACTURER_CODE)
+                                .function_instance(crate::J1939_NAME_FUNCTION_INSTANCE)
+                                .ecu_instance(crate::J1939_NAME_ECU_INSTANCE)
+                                .function(crate::J1939_NAME_FUNCTION)
+                                .vehicle_system(crate::J1939_NAME_VEHICLE_SYSTEM)
                                 .build();
 
                             ctx.shared.canbus1.lock(|canbus1| {
-                                canbus1.send(protocol::address_claimed(crate::NET_ADDRESS, name))
+                                canbus1.send(protocol::address_claimed(crate::J1939_ADDRESS, name))
                             });
                         }
                         _ => {
                             ctx.shared.canbus1.lock(|canbus1| {
-                                canbus1.send(protocol::acknowledgement(crate::NET_ADDRESS, pgn))
+                                canbus1.send(protocol::acknowledgement(crate::J1939_ADDRESS, pgn))
                             });
                         }
                     }
