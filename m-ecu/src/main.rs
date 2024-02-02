@@ -7,11 +7,18 @@ use panic_halt as _;
 
 use stm32h7xx_hal::time::Hertz;
 
+/// Glonax firmware name.
+#[cfg(debug_assertions)]
 const PKG_NAME: &str = env!("CARGO_PKG_NAME");
-const PKG_VERSION: &str = env!("CARGO_PKG_VERSION");
-// const PKG_VERSION_MAJOR: &str = env!("CARGO_PKG_VERSION_MAJOR");
-// const PKG_VERSION_MINOR: &str = env!("CARGO_PKG_VERSION_MINOR");
-// const PKG_VERSION_PATCH: &str = env!("CARGO_PKG_VERSION_PATCH");
+/// Glonax firmware version.
+#[cfg(debug_assertions)]
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+/// Glonax firmware major version.
+const VERSION_MAJOR: &str = env!("CARGO_PKG_VERSION_MAJOR");
+/// Glonax firmware minor version.
+const VERSION_MINOR: &str = env!("CARGO_PKG_VERSION_MINOR");
+/// Glonax firmware patch version.
+const VERSION_PATCH: &str = env!("CARGO_PKG_VERSION_PATCH");
 
 /// High speed external clock frequency.
 const HSE: Hertz = Hertz::MHz(25);
@@ -22,7 +29,18 @@ const FDCAN_CLOCK: Hertz = Hertz::MHz(32);
 /// USART peripheral clock.
 const USART_CLOCK: Hertz = Hertz::MHz(48);
 
-const NET_ADDRESS: u8 = 0x6A;
+/// J1939 network address.
+const NET_ADDRESS: u8 = 0x11;
+/// J1939 name manufacturer code.
+const NET_MANUFACTURER_CODE: u16 = 0x717;
+/// J1939 name function instance.
+const NET_FUNCTION_INSTANCE: u8 = 1;
+/// J1939 name ECU instance.
+const NET_ECU_INSTANCE: u8 = 1;
+/// J1939 name function.
+const NET_FUNCTION: u8 = 0x11;
+/// J1939 name vehicle system.
+const NET_VEHICLE_SYSTEM: u8 = 9;
 
 #[rtic::app(device = stm32h7xx_hal::stm32, peripherals = true, dispatchers = [USART1, USART2])]
 mod app {
@@ -31,6 +49,9 @@ mod app {
     use stm32h7xx_hal::rcc;
     use stm32h7xx_hal::system_watchdog::SystemWindowWatchdog;
     use systick_monotonic::Systick;
+
+    use vecraft::fdcan;
+    use vecraft::j1939::{protocol, FrameBuilder, IdBuilder, NameBuilder, PGN};
 
     /// 100 Hz / 10 ms granularity
     #[monotonic(binds = SysTick, default = true)]
@@ -146,9 +167,8 @@ mod app {
 
         let channel1 = gpioc.pc2.into_analog();
 
-        motd::spawn().ok();
+        bootstrap::spawn().ok();
         firmware_state::spawn().ok();
-        status_print::spawn().ok();
 
         adc_print::spawn().ok();
 
@@ -174,8 +194,23 @@ mod app {
         )
     }
 
-    #[task(shared = [console])]
-    fn motd(mut ctx: motd::Context) {
+    #[task(shared = [canbus1, console])]
+    fn bootstrap(mut ctx: bootstrap::Context) {
+        // TODO: Make an identity number based on debug and firmware version
+        let name = NameBuilder::default()
+            .identity_number(0x1)
+            .manufacturer_code(crate::NET_MANUFACTURER_CODE)
+            .function_instance(crate::NET_FUNCTION_INSTANCE)
+            .ecu_instance(crate::NET_ECU_INSTANCE)
+            .function(crate::NET_FUNCTION)
+            .vehicle_system(crate::NET_VEHICLE_SYSTEM)
+            .build();
+
+        ctx.shared
+            .canbus1
+            .lock(|canbus1| canbus1.send(protocol::address_claimed(crate::NET_ADDRESS, name)));
+
+        #[cfg(debug_assertions)]
         ctx.shared.console.lock(|console| {
             use core::fmt::Write;
 
@@ -186,11 +221,11 @@ mod app {
             writeln!(console, r#"     (/\)(__(____)"#).ok();
             writeln!(console).ok();
             writeln!(console, "    Firmware : {}", crate::PKG_NAME).ok();
-            writeln!(console, "    Version  : {}", crate::PKG_VERSION).ok();
+            writeln!(console, "    Version  : {}", crate::VERSION).ok();
             writeln!(console, "    Address  : 0x{:X?}", crate::NET_ADDRESS).ok();
             writeln!(console).ok();
             writeln!(console, "  Laixer Equipment B.V.").ok();
-            writeln!(console, "   Copyright (C) 2022").ok();
+            writeln!(console, "   Copyright (C) 2024").ok();
             writeln!(console, "==========================").ok();
         });
     }
@@ -199,11 +234,11 @@ mod app {
     fn adc_print(mut ctx: adc_print::Context) {
         let data: u32 = ctx.local.adc1.read(ctx.local.channel1).unwrap();
 
-        let id = vecraft::j1939::IdBuilder::from_pgn(vecraft::j1939::PGN::ProprietaryB(65_450))
+        let id = IdBuilder::from_pgn(PGN::ProprietaryB(65_450))
             .sa(crate::NET_ADDRESS)
             .build();
 
-        let frame = vecraft::j1939::FrameBuilder::new(id)
+        let frame = FrameBuilder::new(id)
             .copy_from_slice(&data.to_le_bytes()[..4])
             .build();
 
@@ -219,6 +254,8 @@ mod app {
         let state = ctx.shared.state.lock(|state| {
             if is_bus_ok {
                 state.set_bus_error(false);
+            } else {
+                state.set_bus_error(true);
             }
 
             state.state()
@@ -230,64 +267,33 @@ mod app {
 
         ctx.local.watchdog.feed();
 
+        let id = IdBuilder::from_pgn(PGN::Other(65_288))
+            .sa(crate::NET_ADDRESS)
+            .build();
+
+        let uptime = monotonics::now().duration_since_epoch();
+        let timestamp = uptime.to_secs() as u32;
+        let state_subclass = 0;
+
+        let frame = FrameBuilder::new(id)
+            .copy_from_slice(&[
+                state.as_byte(),
+                state_subclass,
+                0xff,
+                0xff,
+                timestamp.to_le_bytes()[0],
+                timestamp.to_le_bytes()[1],
+                timestamp.to_le_bytes()[2],
+                timestamp.to_le_bytes()[3],
+            ])
+            .build();
+
+        ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
+
         firmware_state::spawn_after(50.millis().into()).unwrap();
     }
 
-    #[task(shared = [state, canbus1, console], local = [])]
-    fn status_print(mut ctx: status_print::Context) {
-        let uptime = monotonics::now().duration_since_epoch();
-
-        let seconds = uptime.to_secs() % 60;
-        let minutes = uptime.to_minutes() % 60;
-        let hours = uptime.to_hours() % 24;
-
-        let state = ctx.shared.state.lock(|state| state.state());
-
-        ctx.shared.console.lock(|console| {
-            use core::fmt::Write;
-
-            writeln!(
-                console,
-                "[{:02}:{:02}:{:02}] State: {}",
-                hours, minutes, seconds, state
-            )
-            .ok();
-        });
-
-        // let major: u8 = crate::PKG_VERSION_MAJOR.parse().unwrap();
-        // let minor: u8 = crate::PKG_VERSION_MINOR.parse().unwrap();
-        // let patch: u8 = crate::PKG_VERSION_PATCH.parse().unwrap();
-
-        // let last_error = 0_u16;
-        // let (last_error_high, last_error_low) = if last_error > 0 {
-        //     (last_error.to_le_bytes()[0], last_error.to_le_bytes()[1])
-        // } else {
-        //     (0xff, 0xff)
-        // };
-
-        // let id = vecraft::j1939::IdBuilder::from_pgn(65_282)
-        //     .sa(crate::NET_ADDRESS)
-        //     .build();
-
-        // let frame = vecraft::j1939::FrameBuilder::new(id)
-        //     .copy_from_slice(&[
-        //         0xff,
-        //         state.as_byte(),
-        //         major,
-        //         minor,
-        //         patch,
-        //         0xff,
-        //         last_error_high,
-        //         last_error_low,
-        //     ])
-        //     .build();
-
-        // ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
-
-        status_print::spawn_after(1.secs().into()).unwrap();
-    }
-
-    #[task(binds = FDCAN1_IT0, priority = 2, shared = [state, canbus1])]
+    #[task(binds = FDCAN1_IT0, priority = 2, shared = [canbus1, state, console])]
     fn can1_event(mut ctx: can1_event::Context) {
         let is_bus_error = ctx.shared.canbus1.lock(|canbus1| canbus1.is_bus_error());
 
@@ -297,35 +303,53 @@ mod app {
 
         while let Some(frame) = ctx.shared.canbus1.lock(|canbus1| canbus1.recv()) {
             match frame.id().pgn() {
-                vecraft::j1939::PGN::Request => {
-                    let pgn =
-                        vecraft::j1939::PGN::from_le_bytes(frame.pdu()[0..3].try_into().unwrap());
+                PGN::Request => {
+                    let pgn = PGN::from_le_bytes(frame.pdu()[0..3].try_into().unwrap());
 
-                    let id = vecraft::j1939::IdBuilder::from_pgn(
-                        vecraft::j1939::PGN::AcknowledgmentMessage,
-                    )
-                    .da(0xff)
-                    .sa(crate::NET_ADDRESS)
-                    .build();
+                    match pgn {
+                        PGN::SoftwareIdentification => {
+                            let id = IdBuilder::from_pgn(PGN::SoftwareIdentification)
+                                .sa(crate::NET_ADDRESS)
+                                .build();
 
-                    let pgn_bytes = pgn.to_le_bytes();
+                            let frame = FrameBuilder::new(id)
+                                .copy_from_slice(&[
+                                    0x01,
+                                    crate::VERSION_MAJOR.parse::<u8>().unwrap(),
+                                    crate::VERSION_MINOR.parse::<u8>().unwrap(),
+                                    crate::VERSION_PATCH.parse::<u8>().unwrap(),
+                                    b'*',
+                                    0xff,
+                                    0xff,
+                                    0xff,
+                                ])
+                                .build();
 
-                    let frame = vecraft::j1939::FrameBuilder::new(id)
-                        .copy_from_slice(&[
-                            0x01,
-                            0xff,
-                            0xff,
-                            0xff,
-                            0xff,
-                            pgn_bytes[0],
-                            pgn_bytes[1],
-                            pgn_bytes[2],
-                        ])
-                        .build();
+                            ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
+                        }
+                        PGN::AddressClaimed => {
+                            // TODO: Make an identity number based on debug and firmware version
+                            let name = NameBuilder::default()
+                                .identity_number(0x1)
+                                .manufacturer_code(crate::NET_MANUFACTURER_CODE)
+                                .function_instance(crate::NET_FUNCTION_INSTANCE)
+                                .ecu_instance(crate::NET_ECU_INSTANCE)
+                                .function(crate::NET_FUNCTION)
+                                .vehicle_system(crate::NET_VEHICLE_SYSTEM)
+                                .build();
 
-                    ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
+                            ctx.shared.canbus1.lock(|canbus1| {
+                                canbus1.send(protocol::address_claimed(crate::NET_ADDRESS, name))
+                            });
+                        }
+                        _ => {
+                            ctx.shared.canbus1.lock(|canbus1| {
+                                canbus1.send(protocol::acknowledgement(crate::NET_ADDRESS, pgn))
+                            });
+                        }
+                    }
                 }
-                vecraft::j1939::PGN::ProprietarilyConfigurableMessage1 => {
+                PGN::ProprietarilyConfigurableMessage1 => {
                     if frame.pdu()[0] == b'Z' && frame.pdu()[1] == b'C' {
                         if frame.pdu()[2] & 0b00000001 == 1 {
                             ctx.shared.state.lock(|state| state.set_ident(true));

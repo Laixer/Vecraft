@@ -243,10 +243,9 @@ dependencies = [
 
 [[package]]
 name = "m-ecu"
-version = "0.4.2"
+version = "0.5.0"
 dependencies = [
  "cortex-m-rtic",
- "fdcan",
  "panic-halt",
  "stm32h7xx-hal",
  "systick-monotonic",
