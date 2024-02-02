@@ -31,6 +31,16 @@ const USART_CLOCK: Hertz = Hertz::MHz(48);
 
 /// J1939 network address.
 const NET_ADDRESS: u8 = 0x4A;
+/// J1939 name manufacturer code.
+const NET_MANUFACTURER_CODE: u16 = 0x717;
+/// J1939 name function instance.
+const NET_FUNCTION_INSTANCE: u8 = 1;
+/// J1939 name ECU instance.
+const NET_ECU_INSTANCE: u8 = 1;
+/// J1939 name function.
+const NET_FUNCTION: u8 = 0x3A;
+/// J1939 name vehicle system.
+const NET_VEHICLE_SYSTEM: u8 = 9;
 
 #[rtic::app(device = stm32h7xx_hal::stm32, peripherals = true, dispatchers = [USART1, USART2])]
 mod app {
@@ -259,11 +269,11 @@ mod app {
         // TODO: Make an identity number based on debug and firmware version
         let name = NameBuilder::default()
             .identity_number(0x1)
-            .manufacturer_code(0x717)
-            .function_instance(1)
-            .ecu_instance(1)
-            .function(0x3A)
-            .vehicle_system(9)
+            .manufacturer_code(crate::NET_MANUFACTURER_CODE)
+            .function_instance(crate::NET_FUNCTION_INSTANCE)
+            .ecu_instance(crate::NET_ECU_INSTANCE)
+            .function(crate::NET_FUNCTION)
+            .vehicle_system(crate::NET_VEHICLE_SYSTEM)
             .build();
 
         ctx.shared
@@ -354,14 +364,14 @@ mod app {
         match value {
             0 => vecraft::lsgc::GateSide::Hold(0, 0),
             v if v.is_positive() => vecraft::lsgc::GateSide::Up(value as u16),
-            _ => vecraft::lsgc::GateSide::Down((value + 1).abs() as u16),
+            _ => vecraft::lsgc::GateSide::Down((value + 1).unsigned_abs()),
         }
     }
     fn valve_value32(value: i16) -> vecraft::lsgc::GateSide<u32, u32> {
         match value {
             0 => vecraft::lsgc::GateSide::Hold(0, 0),
             v if v.is_positive() => vecraft::lsgc::GateSide::Up(value as u32),
-            _ => vecraft::lsgc::GateSide::Down((value + 1).abs() as u32),
+            _ => vecraft::lsgc::GateSide::Down((value + 1).unsigned_abs() as u32),
         }
     }
 
@@ -411,11 +421,11 @@ mod app {
                             // TODO: Make an identity number based on debug and firmware version
                             let name = NameBuilder::default()
                                 .identity_number(0x1)
-                                .manufacturer_code(0x717)
-                                .function_instance(1)
-                                .ecu_instance(1)
-                                .function(0x3A)
-                                .vehicle_system(9)
+                                .manufacturer_code(crate::NET_MANUFACTURER_CODE)
+                                .function_instance(crate::NET_FUNCTION_INSTANCE)
+                                .ecu_instance(crate::NET_ECU_INSTANCE)
+                                .function(crate::NET_FUNCTION)
+                                .vehicle_system(crate::NET_VEHICLE_SYSTEM)
                                 .build();
 
                             ctx.shared.canbus1.lock(|canbus1| {
