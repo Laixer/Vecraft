@@ -40,6 +40,8 @@ mod app {
     use stm32h7xx_hal::system_watchdog::{Event::EarlyWakeup, SystemWindowWatchdog};
     use systick_monotonic::Systick;
 
+    use vecraft::j1939::{protocol, FrameBuilder, IdBuilder, NameBuilder, PGN};
+
     /// 100 Hz / 10 ms granularity
     #[monotonic(binds = SysTick, default = true)]
     type Monotonic = Systick<100>;
@@ -254,7 +256,7 @@ mod app {
     #[task(shared = [canbus1, console])]
     fn bootstrap(mut ctx: bootstrap::Context) {
         // TODO: Make an identity number based on debug and firmware version
-        let name = vecraft::j1939::NameBuilder::default()
+        let name = NameBuilder::default()
             .identity_number(0x1)
             .manufacturer_code(0x717)
             .function_instance(1)
@@ -263,7 +265,7 @@ mod app {
             .vehicle_system(9)
             .build();
 
-        let frame = vecraft::j1939::protocol::address_claimed(crate::NET_ADDRESS, name);
+        let frame = protocol::address_claimed(crate::NET_ADDRESS, name);
 
         ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
 
@@ -282,7 +284,7 @@ mod app {
             writeln!(console, "    Address  : 0x{:X?}", crate::NET_ADDRESS).ok();
             writeln!(console).ok();
             writeln!(console, "  Laixer Equipment B.V.").ok();
-            writeln!(console, "   Copyright (C) 2023").ok();
+            writeln!(console, "   Copyright (C) 2024").ok();
             writeln!(console, "==========================").ok();
         });
     }
@@ -308,7 +310,7 @@ mod app {
 
         ctx.local.watchdog.feed();
 
-        let id = vecraft::j1939::IdBuilder::from_pgn(vecraft::j1939::PGN::Other(65_288))
+        let id = IdBuilder::from_pgn(PGN::Other(65_288))
             .sa(crate::NET_ADDRESS)
             .build();
 
@@ -317,7 +319,7 @@ mod app {
         let timestamp = uptime.to_secs() as u32;
         let state_subclass = 0;
 
-        let frame = vecraft::j1939::FrameBuilder::new(id)
+        let frame = FrameBuilder::new(id)
             .copy_from_slice(&[
                 state.as_byte(),
                 state_subclass,
@@ -380,19 +382,16 @@ mod app {
 
         while let Some(frame) = ctx.shared.canbus1.lock(|canbus1| canbus1.recv()) {
             match frame.id().pgn() {
-                vecraft::j1939::PGN::Request => {
-                    let pgn =
-                        vecraft::j1939::PGN::from_le_bytes(frame.pdu()[0..3].try_into().unwrap());
+                PGN::Request => {
+                    let pgn = PGN::from_le_bytes(frame.pdu()[0..3].try_into().unwrap());
 
                     // TODO: Add NAME request handling
-                    if pgn == vecraft::j1939::PGN::SoftwareIdentification {
-                        let id = vecraft::j1939::IdBuilder::from_pgn(
-                            vecraft::j1939::PGN::SoftwareIdentification,
-                        )
-                        .sa(crate::NET_ADDRESS)
-                        .build();
+                    if pgn == PGN::SoftwareIdentification {
+                        let id = IdBuilder::from_pgn(PGN::SoftwareIdentification)
+                            .sa(crate::NET_ADDRESS)
+                            .build();
 
-                        let frame = vecraft::j1939::FrameBuilder::new(id)
+                        let frame = FrameBuilder::new(id)
                             .copy_from_slice(&[
                                 0x01,
                                 crate::VERSION_MAJOR.parse::<u8>().unwrap(),
@@ -407,32 +406,12 @@ mod app {
 
                         ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
                     } else {
-                        let id = vecraft::j1939::IdBuilder::from_pgn(
-                            vecraft::j1939::PGN::AcknowledgmentMessage,
-                        )
-                        .da(0xff)
-                        .sa(crate::NET_ADDRESS)
-                        .build();
-
-                        let pgn_bytes = pgn.to_le_bytes();
-
-                        let frame = vecraft::j1939::FrameBuilder::new(id)
-                            .copy_from_slice(&[
-                                0x01,
-                                0xff,
-                                0xff,
-                                0xff,
-                                0xff,
-                                pgn_bytes[0],
-                                pgn_bytes[1],
-                                pgn_bytes[2],
-                            ])
-                            .build();
+                        let frame = protocol::acknowledgement(crate::NET_ADDRESS, pgn);
 
                         ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
                     }
                 }
-                vecraft::j1939::PGN::ProprietarilyConfigurableMessage1 => {
+                PGN::ProprietarilyConfigurableMessage1 => {
                     if frame.pdu()[0] == b'Z' && frame.pdu()[1] == b'C' {
                         if frame.pdu()[2] & 0b00000001 == 1 {
                             ctx.shared.state.lock(|state| state.set_ident(true));
@@ -445,7 +424,7 @@ mod app {
                         }
                     }
                 }
-                vecraft::j1939::PGN::ProprietarilyConfigurableMessage3 => {
+                PGN::ProprietarilyConfigurableMessage3 => {
                     if frame.pdu()[0] == b'Z' && frame.pdu()[1] == b'C' {
                         if frame.pdu()[3] & 0b11 == 0 {
                             ctx.shared.gate_lock.lock(|gate_lock| gate_lock.lock());
@@ -477,7 +456,7 @@ mod app {
                         }
                     }
                 }
-                vecraft::j1939::PGN::Other(40_960) => {
+                PGN::Other(40_960) => {
                     if frame.pdu()[0..2] != [0xff, 0xff] {
                         let gate_value = i16::from_le_bytes(frame.pdu()[0..2].try_into().unwrap());
 
@@ -511,7 +490,7 @@ mod app {
                             .set_value(valve_value(gate_value));
                     }
                 }
-                vecraft::j1939::PGN::Other(41_216) => {
+                PGN::Other(41_216) => {
                     if frame.pdu()[0..2] != [0xff, 0xff] {
                         let gate_value = i16::from_le_bytes(frame.pdu()[0..2].try_into().unwrap());
 
