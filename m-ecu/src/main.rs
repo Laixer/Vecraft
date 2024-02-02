@@ -50,7 +50,7 @@ mod app {
     use stm32h7xx_hal::system_watchdog::SystemWindowWatchdog;
 
     use vecraft::fdcan;
-    use vecraft::j1939::{protocol, FrameBuilder, IdBuilder, NameBuilder, PGN};
+    use vecraft::j1939::{protocol, FrameBuilder, IdBuilder, NameBuilder, PDU_NOT_AVAILABLE, PGN};
     use vecraft::Systick;
 
     /// 100 Hz / 10 ms granularity
@@ -279,8 +279,8 @@ mod app {
             .copy_from_slice(&[
                 state.as_byte(),
                 state_subclass,
-                0xff,
-                0xff,
+                PDU_NOT_AVAILABLE,
+                PDU_NOT_AVAILABLE,
                 timestamp.to_le_bytes()[0],
                 timestamp.to_le_bytes()[1],
                 timestamp.to_le_bytes()[2],
@@ -319,9 +319,9 @@ mod app {
                                     crate::PKG_VERSION_MINOR.parse::<u8>().unwrap(),
                                     crate::PKG_VERSION_PATCH.parse::<u8>().unwrap(),
                                     b'*',
-                                    0xff,
-                                    0xff,
-                                    0xff,
+                                    PDU_NOT_AVAILABLE,
+                                    PDU_NOT_AVAILABLE,
+                                    PDU_NOT_AVAILABLE,
                                 ])
                                 .build();
 
