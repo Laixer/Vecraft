@@ -4,8 +4,6 @@ version = "0.5.0"
 edition = "2021"
 
 [dependencies]
-panic-halt = "0.2.0"
-systick-monotonic = "1.0"
 cortex-m-rtic = { version = "1.1.4" }
 stm32h7xx-hal = { version = "0.15.1", features = ["stm32h743v", "rt", "can"] }
 vecraft = { version = "0.2.0", path = "../vecraft" }

@@ -197,9 +197,7 @@ name = "hcu"
 version = "0.5.2"
 dependencies = [
  "cortex-m-rtic",
- "panic-halt",
  "stm32h7xx-hal",
- "systick-monotonic",
  "vecraft",
 ]
 
@@ -246,9 +244,7 @@ name = "m-ecu"
 version = "0.5.0"
 dependencies = [
  "cortex-m-rtic",
- "panic-halt",
  "stm32h7xx-hal",
- "systick-monotonic",
  "vecraft",
 ]
 

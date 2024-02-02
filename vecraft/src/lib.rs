@@ -5,6 +5,8 @@
 
 pub use fdcan;
 pub use j1939;
+pub use panic_halt;
+pub use systick_monotonic::Systick;
 
 pub mod can;
 pub mod console;

@@ -3,7 +3,7 @@
 #![no_main]
 #![no_std]
 
-use panic_halt as _;
+use vecraft::panic_halt as _;
 
 use stm32h7xx_hal::time::Hertz;
 
@@ -48,10 +48,10 @@ mod app {
     use stm32h7xx_hal::prelude::*;
     use stm32h7xx_hal::rcc;
     use stm32h7xx_hal::system_watchdog::SystemWindowWatchdog;
-    use systick_monotonic::Systick;
 
     use vecraft::fdcan;
     use vecraft::j1939::{protocol, FrameBuilder, IdBuilder, NameBuilder, PGN};
+    use vecraft::Systick;
 
     /// 100 Hz / 10 ms granularity
     #[monotonic(binds = SysTick, default = true)]
