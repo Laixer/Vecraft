@@ -157,11 +157,13 @@ where
         let mut builder = j1939::FrameBuilder::default();
 
         if let Some((id, len)) = self.read(builder.as_mut()) {
-            if len > 8 {
+            if len > j1939::PDU_MAX_LENGTH {
                 return None;
             }
 
-            builder = builder.id(j1939::Id::new(id)).set_len(8);
+            builder = builder
+                .id(j1939::Id::new(id))
+                .set_len(j1939::PDU_MAX_LENGTH);
             Some(builder.build())
         } else {
             None

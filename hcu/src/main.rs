@@ -386,30 +386,47 @@ mod app {
                 PGN::Request => {
                     let pgn = PGN::from_le_bytes(frame.pdu()[0..3].try_into().unwrap());
 
-                    // TODO: Add NAME request handling
-                    if pgn == PGN::SoftwareIdentification {
-                        let id = IdBuilder::from_pgn(PGN::SoftwareIdentification)
-                            .sa(crate::NET_ADDRESS)
-                            .build();
+                    match pgn {
+                        PGN::SoftwareIdentification => {
+                            let id = IdBuilder::from_pgn(PGN::SoftwareIdentification)
+                                .sa(crate::NET_ADDRESS)
+                                .build();
 
-                        let frame = FrameBuilder::new(id)
-                            .copy_from_slice(&[
-                                0x01,
-                                crate::VERSION_MAJOR.parse::<u8>().unwrap(),
-                                crate::VERSION_MINOR.parse::<u8>().unwrap(),
-                                crate::VERSION_PATCH.parse::<u8>().unwrap(),
-                                b'*',
-                                0xff,
-                                0xff,
-                                0xff,
-                            ])
-                            .build();
+                            let frame = FrameBuilder::new(id)
+                                .copy_from_slice(&[
+                                    0x01,
+                                    crate::VERSION_MAJOR.parse::<u8>().unwrap(),
+                                    crate::VERSION_MINOR.parse::<u8>().unwrap(),
+                                    crate::VERSION_PATCH.parse::<u8>().unwrap(),
+                                    b'*',
+                                    0xff,
+                                    0xff,
+                                    0xff,
+                                ])
+                                .build();
 
-                        ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
-                    } else {
-                        ctx.shared.canbus1.lock(|canbus1| {
-                            canbus1.send(protocol::acknowledgement(crate::NET_ADDRESS, pgn))
-                        });
+                            ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
+                        }
+                        PGN::AddressClaimed => {
+                            // TODO: Make an identity number based on debug and firmware version
+                            let name = NameBuilder::default()
+                                .identity_number(0x1)
+                                .manufacturer_code(0x717)
+                                .function_instance(1)
+                                .ecu_instance(1)
+                                .function(0x3A)
+                                .vehicle_system(9)
+                                .build();
+
+                            ctx.shared.canbus1.lock(|canbus1| {
+                                canbus1.send(protocol::address_claimed(crate::NET_ADDRESS, name))
+                            });
+                        }
+                        _ => {
+                            ctx.shared.canbus1.lock(|canbus1| {
+                                canbus1.send(protocol::acknowledgement(crate::NET_ADDRESS, pgn))
+                            });
+                        }
                     }
                 }
                 PGN::ProprietarilyConfigurableMessage1 => {
