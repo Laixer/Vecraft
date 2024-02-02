@@ -50,7 +50,7 @@ mod app {
     use stm32h7xx_hal::system_watchdog::{Event::EarlyWakeup, SystemWindowWatchdog};
 
     use vecraft::fdcan;
-    use vecraft::j1939::{protocol, FrameBuilder, IdBuilder, NameBuilder, PGN};
+    use vecraft::j1939::{protocol, FrameBuilder, IdBuilder, NameBuilder, PDU_NOT_AVAILABLE, PGN};
     use vecraft::Systick;
 
     /// 100 Hz / 10 ms granularity
@@ -335,7 +335,7 @@ mod app {
                 state.as_byte(),
                 state_subclass,
                 is_locked as u8,
-                0xff,
+                PDU_NOT_AVAILABLE,
                 timestamp.to_le_bytes()[0],
                 timestamp.to_le_bytes()[1],
                 timestamp.to_le_bytes()[2],
@@ -409,9 +409,9 @@ mod app {
                                     crate::PKG_VERSION_MINOR.parse::<u8>().unwrap(),
                                     crate::PKG_VERSION_PATCH.parse::<u8>().unwrap(),
                                     b'*',
-                                    0xff,
-                                    0xff,
-                                    0xff,
+                                    PDU_NOT_AVAILABLE,
+                                    PDU_NOT_AVAILABLE,
+                                    PDU_NOT_AVAILABLE,
                                 ])
                                 .build();
 
@@ -485,7 +485,7 @@ mod app {
                     }
                 }
                 PGN::Other(40_960) => {
-                    if frame.pdu()[0..2] != [0xff, 0xff] {
+                    if frame.pdu()[0..2] != [PDU_NOT_AVAILABLE, PDU_NOT_AVAILABLE] {
                         let gate_value = i16::from_le_bytes(frame.pdu()[0..2].try_into().unwrap());
 
                         ctx.local
@@ -493,7 +493,7 @@ mod app {
                             .gate0
                             .set_value(valve_value(gate_value));
                     }
-                    if frame.pdu()[2..4] != [0xff, 0xff] {
+                    if frame.pdu()[2..4] != [PDU_NOT_AVAILABLE, PDU_NOT_AVAILABLE] {
                         let gate_value = i16::from_le_bytes(frame.pdu()[2..4].try_into().unwrap());
 
                         ctx.local
@@ -501,7 +501,7 @@ mod app {
                             .gate1
                             .set_value(valve_value32(gate_value));
                     }
-                    if frame.pdu()[4..6] != [0xff, 0xff] {
+                    if frame.pdu()[4..6] != [PDU_NOT_AVAILABLE, PDU_NOT_AVAILABLE] {
                         let gate_value = i16::from_le_bytes(frame.pdu()[4..6].try_into().unwrap());
 
                         ctx.local
@@ -509,7 +509,7 @@ mod app {
                             .gate2
                             .set_value(valve_value32(gate_value));
                     }
-                    if frame.pdu()[6..8] != [0xff, 0xff] {
+                    if frame.pdu()[6..8] != [PDU_NOT_AVAILABLE, PDU_NOT_AVAILABLE] {
                         let gate_value = i16::from_le_bytes(frame.pdu()[6..8].try_into().unwrap());
 
                         ctx.local
@@ -519,7 +519,7 @@ mod app {
                     }
                 }
                 PGN::Other(41_216) => {
-                    if frame.pdu()[0..2] != [0xff, 0xff] {
+                    if frame.pdu()[0..2] != [PDU_NOT_AVAILABLE, PDU_NOT_AVAILABLE] {
                         let gate_value = i16::from_le_bytes(frame.pdu()[0..2].try_into().unwrap());
 
                         ctx.local
@@ -527,7 +527,7 @@ mod app {
                             .gate4
                             .set_value(valve_value(gate_value));
                     }
-                    if frame.pdu()[2..4] != [0xff, 0xff] {
+                    if frame.pdu()[2..4] != [PDU_NOT_AVAILABLE, PDU_NOT_AVAILABLE] {
                         let gate_value = i16::from_le_bytes(frame.pdu()[2..4].try_into().unwrap());
 
                         ctx.local
@@ -535,7 +535,7 @@ mod app {
                             .gate5
                             .set_value(valve_value(gate_value));
                     }
-                    if frame.pdu()[4..6] != [0xff, 0xff] {
+                    if frame.pdu()[4..6] != [PDU_NOT_AVAILABLE, PDU_NOT_AVAILABLE] {
                         let gate_value = i16::from_le_bytes(frame.pdu()[4..6].try_into().unwrap());
 
                         ctx.local
@@ -543,7 +543,7 @@ mod app {
                             .gate6
                             .set_value(valve_value(gate_value));
                     }
-                    if frame.pdu()[6..8] != [0xff, 0xff] {
+                    if frame.pdu()[6..8] != [PDU_NOT_AVAILABLE, PDU_NOT_AVAILABLE] {
                         let gate_value = i16::from_le_bytes(frame.pdu()[6..8].try_into().unwrap());
 
                         ctx.local
