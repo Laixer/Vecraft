@@ -51,7 +51,8 @@ mod app {
 
     use vecraft::fdcan;
     use vecraft::j1939::{
-        protocol, FrameBuilder, IdBuilder, NameBuilder, FIELD_DELIMITER, PDU_NOT_AVAILABLE, PGN,
+        protocol, spn, FrameBuilder, IdBuilder, NameBuilder, FIELD_DELIMITER, PDU_NOT_AVAILABLE,
+        PGN,
     };
     use vecraft::Systick;
 
@@ -305,8 +306,45 @@ mod app {
 
         while let Some(frame) = ctx.shared.canbus1.lock(|canbus1| canbus1.recv()) {
             match frame.id().pgn() {
+                PGN::TorqueSpeedControl1 => {
+                    let rpm = spn::rpm::dec(&frame.pdu()[1..3]);
+
+                    #[allow(dead_code)]
+                    enum EngineMode {
+                        /// Engine shutdown.
+                        Shutdown = 0x07,
+                        /// Engine starter locked.
+                        Locked = 0x47,
+                        /// Engine running at requested speed.
+                        Nominal = 0x43,
+                        /// Engine starter engaged.
+                        Starting = 0xC3,
+                    }
+
+                    if let Some(rpm) = rpm {
+                        let frame = FrameBuilder::new(
+                            IdBuilder::from_pgn(PGN::ProprietaryB(65_282))
+                                .priority(3)
+                                .sa(crate::J1939_ADDRESS)
+                                .build(),
+                        )
+                        .copy_from_slice(&[
+                            0x00,
+                            EngineMode::Nominal as u8,
+                            0x1f,
+                            0x00,
+                            0x00,
+                            0x00,
+                            0x20,
+                            (rpm as f32 / 10.0) as u8,
+                        ])
+                        .build();
+
+                        ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
+                    }
+                }
                 PGN::Request => {
-                    let pgn = PGN::from_le_bytes(frame.pdu()[0..3].try_into().unwrap());
+                    let pgn = protocol::request_from_pdu(frame.pdu());
 
                     match pgn {
                         PGN::SoftwareIdentification => {
