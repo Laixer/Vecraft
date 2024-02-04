@@ -306,43 +306,6 @@ mod app {
 
         while let Some(frame) = ctx.shared.canbus1.lock(|canbus1| canbus1.recv()) {
             match frame.id().pgn() {
-                PGN::TorqueSpeedControl1 => {
-                    let rpm = spn::rpm::dec(&frame.pdu()[1..3]);
-
-                    #[allow(dead_code)]
-                    enum EngineMode {
-                        /// Engine shutdown.
-                        Shutdown = 0x07,
-                        /// Engine starter locked.
-                        Locked = 0x47,
-                        /// Engine running at requested speed.
-                        Nominal = 0x43,
-                        /// Engine starter engaged.
-                        Starting = 0xC3,
-                    }
-
-                    if let Some(rpm) = rpm {
-                        let frame = FrameBuilder::new(
-                            IdBuilder::from_pgn(PGN::ProprietaryB(65_282))
-                                .priority(3)
-                                .sa(crate::J1939_ADDRESS)
-                                .build(),
-                        )
-                        .copy_from_slice(&[
-                            0x00,
-                            EngineMode::Nominal as u8,
-                            0x1f,
-                            0x00,
-                            0x00,
-                            0x00,
-                            0x20,
-                            (rpm as f32 / 10.0) as u8,
-                        ])
-                        .build();
-
-                        ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
-                    }
-                }
                 PGN::Request => {
                     let pgn = protocol::request_from_pdu(frame.pdu());
 
@@ -400,6 +363,79 @@ mod app {
                         if frame.pdu()[3] == 0x69 {
                             vecraft::sys_reset();
                         }
+                    }
+                }
+                PGN::TorqueSpeedControl1 => {
+                    let rpm = spn::rpm::dec(&frame.pdu()[1..3]);
+
+                    #[allow(dead_code)]
+                    enum EngineMode {
+                        /// Engine shutdown.
+                        Shutdown = 0x07,
+                        /// Engine starter locked.
+                        Locked = 0x47,
+                        /// Engine running at requested speed.
+                        Nominal = 0x43,
+                        /// Engine starter engaged.
+                        Starting = 0xC3,
+                    }
+
+                    if let Some(rpm) = rpm {
+                        let frame = FrameBuilder::new(
+                            IdBuilder::from_pgn(PGN::ProprietaryB(65_282))
+                                .priority(3)
+                                .sa(crate::J1939_ADDRESS)
+                                .build(),
+                        )
+                        .copy_from_slice(&[
+                            0x00,
+                            EngineMode::Nominal as u8,
+                            0x1f,
+                            0x00,
+                            0x00,
+                            0x00,
+                            0x20,
+                            (rpm as f32 / 10.0) as u8,
+                        ])
+                        .build();
+
+                        ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
+                    }
+                }
+                PGN::ElectronicBrakeController1 => {
+                    // Auxiliary Engine Shutdown Switch
+                    if 0b00010000 & frame.pdu()[3] == 0b00010000 {
+                        #[allow(dead_code)]
+                        enum EngineMode {
+                            /// Engine shutdown.
+                            Shutdown = 0x07,
+                            /// Engine starter locked.
+                            Locked = 0x47,
+                            /// Engine running at requested speed.
+                            Nominal = 0x43,
+                            /// Engine starter engaged.
+                            Starting = 0xC3,
+                        }
+
+                        let frame = FrameBuilder::new(
+                            IdBuilder::from_pgn(PGN::ProprietaryB(65_282))
+                                .priority(3)
+                                .sa(crate::J1939_ADDRESS)
+                                .build(),
+                        )
+                        .copy_from_slice(&[
+                            0x00,
+                            EngineMode::Shutdown as u8,
+                            0x1f,
+                            0x00,
+                            0x00,
+                            0x00,
+                            0x20,
+                            0x00,
+                        ])
+                        .build();
+
+                        ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
                     }
                 }
                 _ => {}
