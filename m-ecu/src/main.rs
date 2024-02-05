@@ -30,8 +30,9 @@ const FDCAN_CLOCK: Hertz = Hertz::MHz(32);
 const USART_CLOCK: Hertz = Hertz::MHz(48);
 
 /// J1939 network address.
-const J1939_ADDRESS: u8 = 0x11;
+const J1939_ADDRESS: u8 = 0x0;
 /// J1939 name manufacturer code.
+///
 const J1939_NAME_MANUFACTURER_CODE: u16 = 0x717;
 /// J1939 name function instance.
 const J1939_NAME_FUNCTION_INSTANCE: u8 = 1;
@@ -72,19 +73,21 @@ mod app {
 
     #[local]
     struct LocalResources {
-        adc1: stm32h7xx_hal::adc::Adc<stm32h7xx_hal::stm32::ADC1, stm32h7xx_hal::adc::Enabled>,
-        channel1: gpio::PC2<gpio::Analog>,
+        // adc1: stm32h7xx_hal::adc::Adc<stm32h7xx_hal::stm32::ADC1, stm32h7xx_hal::adc::Enabled>,
+        // channel1: gpio::PC2<gpio::Analog>,
+        in2: gpio::Pin<'B', 0, gpio::Output>,
+        in1: gpio::Pin<'B', 1, gpio::Output>,
         led: vecraft::led::Led,
         watchdog: SystemWindowWatchdog,
     }
 
-    struct Kaas {}
+    // struct Kaas {}
 
-    impl stm32h7xx_hal::hal::blocking::delay::DelayUs<u8> for Kaas {
-        fn delay_us(&mut self, _us: u8) {
-            //
-        }
-    }
+    // impl stm32h7xx_hal::hal::blocking::delay::DelayUs<u8> for Kaas {
+    //     fn delay_us(&mut self, _us: u8) {
+    //         //
+    //     }
+    // }
 
     #[init]
     fn init(ctx: init::Context) -> (SharedResources, LocalResources, init::Monotonics) {
@@ -118,8 +121,8 @@ mod app {
         // let gpioa = ctx.device.GPIOA.split(ccdr.peripheral.GPIOA);
         let gpiob = ctx.device.GPIOB.split(ccdr.peripheral.GPIOB);
         let gpiod = ctx.device.GPIOD.split(ccdr.peripheral.GPIOD);
-        let gpioc = ctx.device.GPIOC.split(ccdr.peripheral.GPIOC);
-        // let gpioe = ctx.device.GPIOE.split(ccdr.peripheral.GPIOE);
+        // let gpioc = ctx.device.GPIOC.split(ccdr.peripheral.GPIOC);
+        let gpioe = ctx.device.GPIOE.split(ccdr.peripheral.GPIOE);
 
         // UART
         let console = vecraft::console::Console::new(
@@ -151,29 +154,42 @@ mod app {
                 .build()
         };
 
-        let mut k = Kaas {};
+        let mut power2_enable = gpioe.pe2.into_push_pull_output();
 
-        // ADC
-        use stm32h7xx_hal::adc::{Adc, AdcSampleTime, Resolution};
+        // let mut in2 = gpiob.pb0.into_push_pull_output();
+        // let mut in1 = gpiob.pb1.into_push_pull_output();
 
-        let mut adc1 = Adc::adc1(
-            ctx.device.ADC1,
-            4.MHz(),
-            &mut k,
-            ccdr.peripheral.ADC12,
-            &ccdr.clocks,
-        )
-        .enable();
+        let in2 = gpiob.pb0.into_push_pull_output();
+        let in1 = gpiob.pb1.into_push_pull_output();
 
-        adc1.set_resolution(Resolution::TwelveBit);
-        adc1.set_sample_time(AdcSampleTime::T_387);
+        power2_enable.set_high();
 
-        let channel1 = gpioc.pc2.into_analog();
+        // in1.set_high();
+        // in2.set_low();
+
+        // let mut k = Kaas {};
+
+        // // ADC
+        // use stm32h7xx_hal::adc::{Adc, AdcSampleTime, Resolution};
+
+        // let mut adc1 = Adc::adc1(
+        //     ctx.device.ADC1,
+        //     4.MHz(),
+        //     &mut k,
+        //     ccdr.peripheral.ADC12,
+        //     &ccdr.clocks,
+        // )
+        // .enable();
+
+        // adc1.set_resolution(Resolution::TwelveBit);
+        // adc1.set_sample_time(AdcSampleTime::T_387);
+
+        // let channel1 = gpioc.pc2.into_analog();
 
         bootstrap::spawn().ok();
         firmware_state::spawn().ok();
 
-        adc_print::spawn().ok();
+        // adc_print::spawn().ok();
 
         watchdog.start(75.millis());
 
@@ -184,8 +200,10 @@ mod app {
                 canbus1,
             },
             LocalResources {
-                adc1,
-                channel1,
+                // adc1,
+                // channel1,
+                in2,
+                in1,
                 led: vecraft::led::Led::new(
                     gpiob.pb13.into_push_pull_output(),
                     gpiob.pb14.into_push_pull_output(),
@@ -233,22 +251,22 @@ mod app {
         });
     }
 
-    #[task(shared = [canbus1], local = [adc1, channel1])]
-    fn adc_print(mut ctx: adc_print::Context) {
-        let data: u32 = ctx.local.adc1.read(ctx.local.channel1).unwrap();
+    // #[task(shared = [canbus1], local = [adc1, channel1])]
+    // fn adc_print(mut ctx: adc_print::Context) {
+    //     let data: u32 = ctx.local.adc1.read(ctx.local.channel1).unwrap();
 
-        let id = IdBuilder::from_pgn(PGN::ProprietaryB(65_450))
-            .sa(crate::J1939_ADDRESS)
-            .build();
+    //     let id = IdBuilder::from_pgn(PGN::ProprietaryB(65_450))
+    //         .sa(crate::J1939_ADDRESS)
+    //         .build();
 
-        let frame = FrameBuilder::new(id)
-            .copy_from_slice(&data.to_le_bytes()[..4])
-            .build();
+    //     let frame = FrameBuilder::new(id)
+    //         .copy_from_slice(&data.to_le_bytes()[..4])
+    //         .build();
 
-        ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
+    //     ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
 
-        adc_print::spawn_after(50.millis().into()).unwrap();
-    }
+    //     adc_print::spawn_after(50.millis().into()).unwrap();
+    // }
 
     #[task(shared = [state, canbus1], local = [led, watchdog])]
     fn firmware_state(mut ctx: firmware_state::Context) {
@@ -296,7 +314,7 @@ mod app {
         firmware_state::spawn_after(50.millis().into()).unwrap();
     }
 
-    #[task(binds = FDCAN1_IT0, priority = 2, shared = [canbus1, state, console])]
+    #[task(binds = FDCAN1_IT0, priority = 2, shared = [canbus1, state, console], local = [in1, in2])]
     fn can1_event(mut ctx: can1_event::Context) {
         let is_bus_error = ctx.shared.canbus1.lock(|canbus1| canbus1.is_bus_error());
 
@@ -365,46 +383,9 @@ mod app {
                         }
                     }
                 }
-                PGN::TorqueSpeedControl1 => {
-                    let rpm = spn::rpm::dec(&frame.pdu()[1..3]);
-
-                    #[allow(dead_code)]
-                    enum EngineMode {
-                        /// Engine shutdown.
-                        Shutdown = 0x07,
-                        /// Engine starter locked.
-                        Locked = 0x47,
-                        /// Engine running at requested speed.
-                        Nominal = 0x43,
-                        /// Engine starter engaged.
-                        Starting = 0xC3,
-                    }
-
-                    if let Some(rpm) = rpm {
-                        let frame = FrameBuilder::new(
-                            IdBuilder::from_pgn(PGN::ProprietaryB(65_282))
-                                .priority(3)
-                                .sa(crate::J1939_ADDRESS)
-                                .build(),
-                        )
-                        .copy_from_slice(&[
-                            0x00,
-                            EngineMode::Nominal as u8,
-                            0x1f,
-                            0x00,
-                            0x00,
-                            0x00,
-                            0x20,
-                            (rpm as f32 / 10.0) as u8,
-                        ])
-                        .build();
-
-                        ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
-                    }
-                }
-                PGN::ElectronicBrakeController1 => {
+                PGN::ProprietarilyConfigurableMessage3 => {
                     // Auxiliary Engine Shutdown Switch
-                    if 0b00010000 & frame.pdu()[3] == 0b00010000 {
+                    if frame.pdu()[3] == 0x10 {
                         #[allow(dead_code)]
                         enum EngineMode {
                             /// Engine shutdown.
@@ -420,7 +401,7 @@ mod app {
                         let frame = FrameBuilder::new(
                             IdBuilder::from_pgn(PGN::ProprietaryB(65_282))
                                 .priority(3)
-                                .sa(crate::J1939_ADDRESS)
+                                .sa(0x11)
                                 .build(),
                         )
                         .copy_from_slice(&[
@@ -434,6 +415,75 @@ mod app {
                             0x00,
                         ])
                         .build();
+
+                        ctx.local.in1.set_low();
+                        ctx.local.in2.set_low();
+
+                        ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
+                    }
+                }
+                PGN::TorqueSpeedControl1 => {
+                    let control_mode = frame.pdu()[0];
+                    let rpm = spn::rpm::dec(&frame.pdu()[1..3]);
+
+                    #[allow(dead_code)]
+                    enum EngineMode {
+                        /// Engine shutdown.
+                        Shutdown = 0x07,
+                        /// Engine starter locked.
+                        Locked = 0x47,
+                        /// Engine running at requested speed.
+                        Nominal = 0x43,
+                        /// Engine starter engaged.
+                        Starting = 0xC3,
+                    }
+
+                    if control_mode == 0x1 {
+                        if let Some(rpm) = rpm {
+                            let frame = FrameBuilder::new(
+                                IdBuilder::from_pgn(PGN::ProprietaryB(65_282))
+                                    .priority(3)
+                                    .sa(0x11)
+                                    .build(),
+                            )
+                            .copy_from_slice(&[
+                                0x00,
+                                EngineMode::Nominal as u8,
+                                0x1f,
+                                0x00,
+                                0x00,
+                                0x00,
+                                0x20,
+                                (rpm as f32 / 10.0) as u8,
+                            ])
+                            .build();
+
+                            ctx.local.in1.set_low();
+                            ctx.local.in2.set_low();
+
+                            ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
+                        }
+                    } else if control_mode == 0x3 {
+                        let frame = FrameBuilder::new(
+                            IdBuilder::from_pgn(PGN::ProprietaryB(65_282))
+                                .priority(3)
+                                .sa(0x11)
+                                .build(),
+                        )
+                        .copy_from_slice(&[
+                            0x00,
+                            EngineMode::Starting as u8,
+                            0x1f,
+                            0x00,
+                            0x00,
+                            0x00,
+                            0x20,
+                            0x50,
+                        ])
+                        .build();
+
+                        ctx.local.in1.set_high();
+                        ctx.local.in2.set_low();
 
                         ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
                     }
