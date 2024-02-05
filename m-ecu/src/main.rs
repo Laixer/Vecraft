@@ -150,7 +150,6 @@ mod app {
 
             vecraft::can::CanBuilder::new(ctx.device.FDCAN1.fdcan(tx, rx, fdcan_prec), pd3)
                 .set_bit_timing(vecraft::can::BITRATE_250K)
-                .set_net_address_filter(crate::J1939_ADDRESS)
                 .build()
         };
 
@@ -383,9 +382,9 @@ mod app {
                         }
                     }
                 }
-                PGN::ProprietarilyConfigurableMessage3 => {
+                PGN::ElectronicBrakeController1 => {
                     // Auxiliary Engine Shutdown Switch
-                    if frame.pdu()[3] == 0x10 {
+                    if 0b0001_0000 & frame.pdu()[3] == 0b0001_0000 {
                         #[allow(dead_code)]
                         enum EngineMode {
                             /// Engine shutdown.
