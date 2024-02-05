@@ -383,8 +383,7 @@ mod app {
                     }
                 }
                 PGN::ElectronicBrakeController1 => {
-                    // Auxiliary Engine Shutdown Switch
-                    if 0b0001_0000 & frame.pdu()[3] == 0b0001_0000 {
+                    if frame.pdu()[3] != 0xff && 0b0001_0000 & frame.pdu()[3] == 0b0001_0000 {
                         #[allow(dead_code)]
                         enum EngineMode {
                             /// Engine shutdown.
@@ -437,7 +436,7 @@ mod app {
                         Starting = 0xC3,
                     }
 
-                    if control_mode == 0x1 {
+                    if frame.pdu()[0] != 0xff && control_mode == 0x1 {
                         if let Some(rpm) = rpm {
                             let frame = FrameBuilder::new(
                                 IdBuilder::from_pgn(PGN::ProprietaryB(65_282))
@@ -462,7 +461,7 @@ mod app {
 
                             ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
                         }
-                    } else if control_mode == 0x3 {
+                    } else if frame.pdu()[0] != 0xff && control_mode == 0x3 {
                         let frame = FrameBuilder::new(
                             IdBuilder::from_pgn(PGN::ProprietaryB(65_282))
                                 .priority(3)
