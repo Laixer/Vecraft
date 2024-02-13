@@ -443,9 +443,9 @@ mod app {
                 }
                 PGN::ProprietarilyConfigurableMessage1 => {
                     if frame.pdu()[0] == b'Z' && frame.pdu()[1] == b'C' {
-                        if frame.pdu()[2] & 0b00000001 == 1 {
+                        if frame.pdu()[2] & 0b1 == 1 {
                             ctx.shared.state.lock(|state| state.set_ident(true));
-                        } else if frame.pdu()[2] & 0b00000001 == 0 {
+                        } else if frame.pdu()[2] & 0b1 == 0 {
                             ctx.shared.state.lock(|state| state.set_ident(false));
                         }
 
