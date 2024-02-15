@@ -43,8 +43,12 @@ const J1939_NAME_FUNCTION: u8 = 0x11;
 /// J1939 name vehicle system.
 const J1939_NAME_VEHICLE_SYSTEM: u8 = 9;
 
+/// Engine RPM minimum.
 const ENGINE_RPM_MIN: u16 = 700;
+/// Engine RPM maximum.
 const ENGINE_RPM_MAX: u16 = 2300;
+
+mod protocol;
 
 #[rtic::app(device = stm32h7xx_hal::stm32, peripherals = true, dispatchers = [USART1, USART2])]
 mod app {
@@ -330,39 +334,16 @@ mod app {
                     }
                 }
                 PGN::ElectronicBrakeController1 => {
-                    if frame.pdu()[3] != 0xff && 0b0001_0000 & frame.pdu()[3] == 0b0001_0000 {
-                        #[allow(dead_code)]
-                        enum EngineMode {
-                            /// Engine shutdown.
-                            Shutdown = 0x07,
-                            /// Engine starter locked.
-                            Locked = 0x47,
-                            /// Engine running at requested speed.
-                            Nominal = 0x43,
-                            /// Engine starter engaged.
-                            Starting = 0xC3,
-                        }
-
-                        let frame = FrameBuilder::new(
-                            IdBuilder::from_pgn(PGN::ProprietaryB(65_282))
-                                .priority(3)
-                                .sa(0x11)
-                                .build(),
-                        )
-                        .copy_from_slice(&[
-                            0x00,
-                            EngineMode::Shutdown as u8,
-                            0x1f,
-                            0x00,
-                            0x00,
-                            0x00,
-                            0x20,
-                            0x00,
-                        ])
-                        .build();
-
+                    if frame.pdu()[3] != PDU_NOT_AVAILABLE
+                        && 0b0001_0000 & frame.pdu()[3] == 0b0001_0000
+                    {
                         ctx.local.in1.set_low();
                         ctx.local.in2.set_low();
+
+                        let frame = crate::protocol::volvo_speed_request(
+                            crate::protocol::EngineMode::Shutdown,
+                            crate::ENGINE_RPM_MIN,
+                        );
 
                         ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
                     }
@@ -374,26 +355,13 @@ mod app {
                             .unwrap_or(crate::ENGINE_RPM_MIN)
                             .clamp(crate::ENGINE_RPM_MIN, crate::ENGINE_RPM_MAX);
 
-                        #[allow(dead_code)]
-                        #[derive(PartialEq, Eq)]
-                        enum EngineMode {
-                            /// Engine shutdown.
-                            Shutdown = 0x07,
-                            /// Engine starter locked.
-                            Locked = 0x47,
-                            /// Engine running at requested speed.
-                            Nominal = 0x43,
-                            /// Engine starter engaged.
-                            Starting = 0xC3,
-                        }
-
                         let mode = match 0b11 & control_mode {
-                            0b01 => EngineMode::Nominal,
-                            0b11 => EngineMode::Starting,
-                            _ => EngineMode::Locked,
+                            0b01 => crate::protocol::EngineMode::Nominal,
+                            0b11 => crate::protocol::EngineMode::Starting,
+                            _ => crate::protocol::EngineMode::Locked,
                         };
 
-                        if mode == EngineMode::Starting {
+                        if mode == crate::protocol::EngineMode::Starting {
                             ctx.local.in1.set_high();
                             ctx.local.in2.set_low();
                         } else {
@@ -401,23 +369,7 @@ mod app {
                             ctx.local.in2.set_low();
                         }
 
-                        let frame = FrameBuilder::new(
-                            IdBuilder::from_pgn(PGN::ProprietaryB(65_282))
-                                .priority(3)
-                                .sa(0x11)
-                                .build(),
-                        )
-                        .copy_from_slice(&[
-                            0x00,
-                            mode as u8,
-                            0x1f,
-                            0x00,
-                            0x00,
-                            0x00,
-                            0x20,
-                            (rpm as f32 / 10.0) as u8,
-                        ])
-                        .build();
+                        let frame = crate::protocol::volvo_speed_request(mode, rpm);
 
                         ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
                     }
