@@ -421,47 +421,39 @@ mod app {
                     }
                 }
                 PGN::TorqueSpeedControl1 => {
-                    let control_mode = frame.pdu()[0];
-                    let rpm = spn::rpm::dec(&frame.pdu()[1..3]);
+                    if frame.pdu()[0] != 0xff {
+                        let control_mode = frame.pdu()[0];
+                        let rpm = spn::rpm::dec(&frame.pdu()[1..3])
+                            .unwrap_or(700)
+                            .clamp(700, 2_300);
 
-                    #[allow(dead_code)]
-                    enum EngineMode {
-                        /// Engine shutdown.
-                        Shutdown = 0x07,
-                        /// Engine starter locked.
-                        Locked = 0x47,
-                        /// Engine running at requested speed.
-                        Nominal = 0x43,
-                        /// Engine starter engaged.
-                        Starting = 0xC3,
-                    }
+                        #[allow(dead_code)]
+                        #[derive(PartialEq, Eq)]
+                        enum EngineMode {
+                            /// Engine shutdown.
+                            Shutdown = 0x07,
+                            /// Engine starter locked.
+                            Locked = 0x47,
+                            /// Engine running at requested speed.
+                            Nominal = 0x43,
+                            /// Engine starter engaged.
+                            Starting = 0xC3,
+                        }
 
-                    if frame.pdu()[0] != 0xff && control_mode == 0x1 {
-                        if let Some(rpm) = rpm {
-                            let frame = FrameBuilder::new(
-                                IdBuilder::from_pgn(PGN::ProprietaryB(65_282))
-                                    .priority(3)
-                                    .sa(0x11)
-                                    .build(),
-                            )
-                            .copy_from_slice(&[
-                                0x00,
-                                EngineMode::Nominal as u8,
-                                0x1f,
-                                0x00,
-                                0x00,
-                                0x00,
-                                0x20,
-                                (rpm as f32 / 10.0) as u8,
-                            ])
-                            .build();
+                        let mode = match 0b11 & control_mode {
+                            0b01 => EngineMode::Nominal,
+                            0b11 => EngineMode::Starting,
+                            _ => EngineMode::Locked,
+                        };
 
+                        if mode == EngineMode::Starting {
+                            ctx.local.in1.set_high();
+                            ctx.local.in2.set_low();
+                        } else {
                             ctx.local.in1.set_low();
                             ctx.local.in2.set_low();
-
-                            ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
                         }
-                    } else if frame.pdu()[0] != 0xff && control_mode == 0x3 {
+
                         let frame = FrameBuilder::new(
                             IdBuilder::from_pgn(PGN::ProprietaryB(65_282))
                                 .priority(3)
@@ -470,18 +462,15 @@ mod app {
                         )
                         .copy_from_slice(&[
                             0x00,
-                            EngineMode::Starting as u8,
+                            mode as u8,
                             0x1f,
                             0x00,
                             0x00,
                             0x00,
                             0x20,
-                            0x50,
+                            (rpm as f32 / 10.0) as u8,
                         ])
                         .build();
-
-                        ctx.local.in1.set_high();
-                        ctx.local.in2.set_low();
 
                         ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
                     }
