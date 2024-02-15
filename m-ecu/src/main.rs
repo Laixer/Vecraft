@@ -162,6 +162,39 @@ mod app {
 
         watchdog.start(75.millis());
 
+        // {
+        //     // TODO: Make an identity number based on debug and firmware version
+        //     let name = NameBuilder::default()
+        //         .identity_number(0x1)
+        //         .manufacturer_code(crate::J1939_NAME_MANUFACTURER_CODE)
+        //         .function_instance(crate::J1939_NAME_FUNCTION_INSTANCE)
+        //         .ecu_instance(crate::J1939_NAME_ECU_INSTANCE)
+        //         .function(crate::J1939_NAME_FUNCTION)
+        //         .vehicle_system(crate::J1939_NAME_VEHICLE_SYSTEM)
+        //         .build();
+
+        //     canbus1.send(protocol::address_claimed(crate::J1939_ADDRESS, name));
+        // }
+
+        // #[cfg(debug_assertions)]
+        // {
+        //     use core::fmt::Write;
+
+        //     writeln!(console, "==========================").ok();
+        //     writeln!(console, r#"       //\\  ___"#).ok();
+        //     writeln!(console, r#"       Y  \\/_/=|"#).ok();
+        //     writeln!(console, r#"      _L  ((|_L_|"#).ok();
+        //     writeln!(console, r#"     (/\)(__(____)"#).ok();
+        //     writeln!(console).ok();
+        //     writeln!(console, "    Firmware : {}", crate::PKG_NAME).ok();
+        //     writeln!(console, "    Version  : {}", crate::PKG_VERSION).ok();
+        //     writeln!(console, "    Address  : 0x{:X?}", crate::J1939_ADDRESS).ok();
+        //     writeln!(console).ok();
+        //     writeln!(console, "  Laixer Equipment B.V.").ok();
+        //     writeln!(console, "   Copyright (C) 2024").ok();
+        //     writeln!(console, "==========================").ok();
+        // };
+
         (
             SharedResources {
                 state: vecraft::state::System::boot(),
