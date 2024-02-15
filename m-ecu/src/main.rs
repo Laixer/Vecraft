@@ -43,6 +43,9 @@ const J1939_NAME_FUNCTION: u8 = 0x11;
 /// J1939 name vehicle system.
 const J1939_NAME_VEHICLE_SYSTEM: u8 = 9;
 
+const ENGINE_RPM_MIN: u16 = 700;
+const ENGINE_RPM_MAX: u16 = 2300;
+
 #[rtic::app(device = stm32h7xx_hal::stm32, peripherals = true, dispatchers = [USART1, USART2])]
 mod app {
     use stm32h7xx_hal::gpio::{self};
@@ -73,21 +76,11 @@ mod app {
 
     #[local]
     struct LocalResources {
-        // adc1: stm32h7xx_hal::adc::Adc<stm32h7xx_hal::stm32::ADC1, stm32h7xx_hal::adc::Enabled>,
-        // channel1: gpio::PC2<gpio::Analog>,
         in2: gpio::Pin<'B', 0, gpio::Output>,
         in1: gpio::Pin<'B', 1, gpio::Output>,
         led: vecraft::led::Led,
         watchdog: SystemWindowWatchdog,
     }
-
-    // struct Kaas {}
-
-    // impl stm32h7xx_hal::hal::blocking::delay::DelayUs<u8> for Kaas {
-    //     fn delay_us(&mut self, _us: u8) {
-    //         //
-    //     }
-    // }
 
     #[init]
     fn init(ctx: init::Context) -> (SharedResources, LocalResources, init::Monotonics) {
@@ -155,40 +148,13 @@ mod app {
 
         let mut power2_enable = gpioe.pe2.into_push_pull_output();
 
-        // let mut in2 = gpiob.pb0.into_push_pull_output();
-        // let mut in1 = gpiob.pb1.into_push_pull_output();
-
         let in2 = gpiob.pb0.into_push_pull_output();
         let in1 = gpiob.pb1.into_push_pull_output();
 
         power2_enable.set_high();
 
-        // in1.set_high();
-        // in2.set_low();
-
-        // let mut k = Kaas {};
-
-        // // ADC
-        // use stm32h7xx_hal::adc::{Adc, AdcSampleTime, Resolution};
-
-        // let mut adc1 = Adc::adc1(
-        //     ctx.device.ADC1,
-        //     4.MHz(),
-        //     &mut k,
-        //     ccdr.peripheral.ADC12,
-        //     &ccdr.clocks,
-        // )
-        // .enable();
-
-        // adc1.set_resolution(Resolution::TwelveBit);
-        // adc1.set_sample_time(AdcSampleTime::T_387);
-
-        // let channel1 = gpioc.pc2.into_analog();
-
         bootstrap::spawn().ok();
         firmware_state::spawn().ok();
-
-        // adc_print::spawn().ok();
 
         watchdog.start(75.millis());
 
@@ -199,8 +165,6 @@ mod app {
                 canbus1,
             },
             LocalResources {
-                // adc1,
-                // channel1,
                 in2,
                 in1,
                 led: vecraft::led::Led::new(
@@ -249,23 +213,6 @@ mod app {
             writeln!(console, "==========================").ok();
         });
     }
-
-    // #[task(shared = [canbus1], local = [adc1, channel1])]
-    // fn adc_print(mut ctx: adc_print::Context) {
-    //     let data: u32 = ctx.local.adc1.read(ctx.local.channel1).unwrap();
-
-    //     let id = IdBuilder::from_pgn(PGN::ProprietaryB(65_450))
-    //         .sa(crate::J1939_ADDRESS)
-    //         .build();
-
-    //     let frame = FrameBuilder::new(id)
-    //         .copy_from_slice(&data.to_le_bytes()[..4])
-    //         .build();
-
-    //     ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
-
-    //     adc_print::spawn_after(50.millis().into()).unwrap();
-    // }
 
     #[task(shared = [state, canbus1], local = [led, watchdog])]
     fn firmware_state(mut ctx: firmware_state::Context) {
@@ -421,11 +368,11 @@ mod app {
                     }
                 }
                 PGN::TorqueSpeedControl1 => {
-                    if frame.pdu()[0] != 0xff {
+                    if frame.pdu()[0] != PDU_NOT_AVAILABLE {
                         let control_mode = frame.pdu()[0];
                         let rpm = spn::rpm::dec(&frame.pdu()[1..3])
-                            .unwrap_or(700)
-                            .clamp(700, 2_300);
+                            .unwrap_or(crate::ENGINE_RPM_MIN)
+                            .clamp(crate::ENGINE_RPM_MIN, crate::ENGINE_RPM_MAX);
 
                         #[allow(dead_code)]
                         #[derive(PartialEq, Eq)]
