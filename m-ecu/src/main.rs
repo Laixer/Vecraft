@@ -350,16 +350,25 @@ mod app {
                 }
                 PGN::TorqueSpeedControl1 => {
                     if frame.pdu()[0] != PDU_NOT_AVAILABLE {
-                        let control_mode = frame.pdu()[0];
-                        let rpm = spn::rpm::dec(&frame.pdu()[1..3])
+                        let message = spn::TorqueSpeedControlMessage::from_pdu(frame.pdu());
+
+                        // let control_mode = frame.pdu()[0];
+                        let rpm = message
+                            .speed
                             .unwrap_or(crate::ENGINE_RPM_MIN)
                             .clamp(crate::ENGINE_RPM_MIN, crate::ENGINE_RPM_MAX);
 
-                        let mode = match 0b11 & control_mode {
-                            0b01 => crate::protocol::EngineMode::Nominal,
-                            0b11 => crate::protocol::EngineMode::Starting,
+                        let mode = match message.override_control_mode {
+                            Some(vecraft::j1939::decode::OverrideControlMode::SpeedControl) => crate::protocol::EngineMode::Nominal,
+                            Some(vecraft::j1939::decode::OverrideControlMode::SpeedTorqueLimitControl) => crate::protocol::EngineMode::Starting,
                             _ => crate::protocol::EngineMode::Locked,
                         };
+
+                        // let mode = match 0b11 & control_mode {
+                        //     0b01 => crate::protocol::EngineMode::Nominal,
+                        //     0b11 => crate::protocol::EngineMode::Starting,
+                        //     _ => crate::protocol::EngineMode::Locked,
+                        // };
 
                         if mode == crate::protocol::EngineMode::Starting {
                             ctx.local.in1.set_high();
