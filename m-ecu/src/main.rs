@@ -229,8 +229,6 @@ mod app {
             .led
             .set_color(&state.as_led(), &vecraft::led::LedState::On);
 
-        ctx.local.watchdog.feed();
-
         let id = IdBuilder::from_pgn(PGN::Other(65_288))
             .sa(crate::J1939_ADDRESS)
             .build();
@@ -253,6 +251,8 @@ mod app {
             .build();
 
         ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
+
+        ctx.local.watchdog.feed();
 
         firmware_state::spawn_after(50.millis().into()).unwrap();
     }
