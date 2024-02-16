@@ -8,10 +8,8 @@ use vecraft::panic_halt as _;
 use stm32h7xx_hal::time::Hertz;
 
 /// Glonax firmware name.
-#[cfg(debug_assertions)]
 const PKG_NAME: &str = env!("CARGO_PKG_NAME");
 /// Glonax firmware version.
-#[cfg(debug_assertions)]
 const PKG_VERSION: &str = env!("CARGO_PKG_VERSION");
 /// Glonax firmware major version.
 const PKG_VERSION_MAJOR: &str = env!("CARGO_PKG_VERSION_MAJOR");
@@ -113,7 +111,7 @@ mod app {
         // let gpioe = ctx.device.GPIOE.split(ccdr.peripheral.GPIOE);
 
         // UART
-        let console = vecraft::console::Console::new(
+        let mut console = vecraft::console::Console::new(
             ctx.device
                 .USART2
                 .serial(
@@ -130,7 +128,7 @@ mod app {
             .FDCAN
             .kernel_clk_mux(rcc::rec::FdcanClkSel::Pll1Q);
 
-        let canbus1 = {
+        let mut canbus1 = {
             let rx = gpiod.pd0.into_alternate().speed(gpio::Speed::VeryHigh);
             let tx = gpiod.pd1.into_alternate().speed(gpio::Speed::VeryHigh);
 
@@ -240,11 +238,42 @@ mod app {
         };
         gate_control.reset();
 
-        bootstrap::spawn().ok();
         firmware_state::spawn().ok();
 
         watchdog.start(75.millis());
         watchdog.listen(EarlyWakeup);
+
+        {
+            // TODO: Make an identity number based on debug and firmware version
+            let name = NameBuilder::default()
+                .identity_number(0x1)
+                .manufacturer_code(crate::J1939_NAME_MANUFACTURER_CODE)
+                .function_instance(crate::J1939_NAME_FUNCTION_INSTANCE)
+                .ecu_instance(crate::J1939_NAME_ECU_INSTANCE)
+                .function(crate::J1939_NAME_FUNCTION)
+                .vehicle_system(crate::J1939_NAME_VEHICLE_SYSTEM)
+                .build();
+
+            canbus1.send(protocol::address_claimed(crate::J1939_ADDRESS, name));
+        }
+
+        {
+            use core::fmt::Write;
+
+            writeln!(console, "==========================").ok();
+            writeln!(console, r#"       //\\  ___"#).ok();
+            writeln!(console, r#"       Y  \\/_/=|"#).ok();
+            writeln!(console, r#"      _L  ((|_L_|"#).ok();
+            writeln!(console, r#"     (/\)(__(____)"#).ok();
+            writeln!(console).ok();
+            writeln!(console, "    Firmware : {}", crate::PKG_NAME).ok();
+            writeln!(console, "    Version  : {}", crate::PKG_VERSION).ok();
+            writeln!(console, "    Address  : 0x{:X?}", crate::J1939_ADDRESS).ok();
+            writeln!(console).ok();
+            writeln!(console, "  Laixer Equipment B.V.").ok();
+            writeln!(console, "   Copyright (C) 2024").ok();
+            writeln!(console, "==========================").ok();
+        };
 
         (
             SharedResources {
@@ -264,42 +293,6 @@ mod app {
             },
             init::Monotonics(mono),
         )
-    }
-
-    #[task(shared = [canbus1, console])]
-    fn bootstrap(mut ctx: bootstrap::Context) {
-        // TODO: Make an identity number based on debug and firmware version
-        let name = NameBuilder::default()
-            .identity_number(0x1)
-            .manufacturer_code(crate::J1939_NAME_MANUFACTURER_CODE)
-            .function_instance(crate::J1939_NAME_FUNCTION_INSTANCE)
-            .ecu_instance(crate::J1939_NAME_ECU_INSTANCE)
-            .function(crate::J1939_NAME_FUNCTION)
-            .vehicle_system(crate::J1939_NAME_VEHICLE_SYSTEM)
-            .build();
-
-        ctx.shared
-            .canbus1
-            .lock(|canbus1| canbus1.send(protocol::address_claimed(crate::J1939_ADDRESS, name)));
-
-        #[cfg(debug_assertions)]
-        ctx.shared.console.lock(|console| {
-            use core::fmt::Write;
-
-            writeln!(console, "==========================").ok();
-            writeln!(console, r#"       //\\  ___"#).ok();
-            writeln!(console, r#"       Y  \\/_/=|"#).ok();
-            writeln!(console, r#"      _L  ((|_L_|"#).ok();
-            writeln!(console, r#"     (/\)(__(____)"#).ok();
-            writeln!(console).ok();
-            writeln!(console, "    Firmware : {}", crate::PKG_NAME).ok();
-            writeln!(console, "    Version  : {}", crate::PKG_VERSION).ok();
-            writeln!(console, "    Address  : 0x{:X?}", crate::J1939_ADDRESS).ok();
-            writeln!(console).ok();
-            writeln!(console, "  Laixer Equipment B.V.").ok();
-            writeln!(console, "   Copyright (C) 2024").ok();
-            writeln!(console, "==========================").ok();
-        });
     }
 
     #[task(shared = [state, canbus1, gate_lock], local = [led, watchdog])]
