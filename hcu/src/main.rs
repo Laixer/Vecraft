@@ -384,6 +384,8 @@ mod app {
 
                 writeln!(console, "Motion locked due to bus error").ok();
             });
+
+            return;
         }
 
         while let Some(frame) = ctx.shared.canbus1.lock(|canbus1| canbus1.recv()) {

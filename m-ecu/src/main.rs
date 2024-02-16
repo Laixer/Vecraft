@@ -150,8 +150,11 @@ mod app {
 
         let mut power2_enable = gpioe.pe2.into_push_pull_output();
 
-        let in2 = gpiob.pb0.into_push_pull_output();
-        let in1 = gpiob.pb1.into_push_pull_output();
+        let mut in2 = gpiob.pb0.into_push_pull_output();
+        let mut in1 = gpiob.pb1.into_push_pull_output();
+
+        in1.set_low();
+        in2.set_low();
 
         power2_enable.set_high();
 
@@ -263,6 +266,8 @@ mod app {
 
         if is_bus_error {
             ctx.shared.state.lock(|state| state.set_bus_error(true));
+
+            return;
         }
 
         while let Some(frame) = ctx.shared.canbus1.lock(|canbus1| canbus1.recv()) {
@@ -342,7 +347,10 @@ mod app {
                     }
                 }
                 PGN::TorqueSpeedControl1 => {
-                    if frame.pdu()[0] != PDU_NOT_AVAILABLE {
+                    // TODO: Filter on destination address until the CAN filter is implemented
+                    if frame.id().destination_address() == Some(crate::J1939_ADDRESS)
+                        && frame.pdu()[0] != PDU_NOT_AVAILABLE
+                    {
                         let message = spn::TorqueSpeedControlMessage::from_pdu(frame.pdu());
 
                         let rpm = message
