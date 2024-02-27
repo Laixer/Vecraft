@@ -140,8 +140,8 @@ mod app {
                 .build()
         };
 
-        let pwr_swtich1 = gpiod.pd11.into_push_pull_output();
-        let pwr_swtich2 = gpioa.pa12.into_push_pull_output();
+        let power_swtich1 = gpiod.pd11.into_push_pull_output();
+        let power_swtich2 = gpioa.pa12.into_push_pull_output();
 
         let (_, (pwm_high1, pwm_low1, pwm_high2, pwm_low2)) = ctx
             .device
@@ -221,8 +221,8 @@ mod app {
         let gate7 = vecraft::lsgc::Gate::new(pwm_high7, pwm_low7);
 
         let mut gate_lock = vecraft::lsgc::GateLock {
-            lockout0: pwr_swtich1,
-            lockout1: pwr_swtich2,
+            lockout0: power_swtich1,
+            lockout1: power_swtich2,
         };
         gate_lock.lock();
 

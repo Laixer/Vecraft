@@ -143,6 +143,7 @@ mod app {
 
             let pd3 = gpiod.pd3.into_push_pull_output();
 
+            // TODO: Add filter
             vecraft::can::CanBuilder::new(ctx.device.FDCAN1.fdcan(tx, rx, fdcan_prec), pd3)
                 .set_bit_timing(vecraft::can::BITRATE_250K)
                 .build()
