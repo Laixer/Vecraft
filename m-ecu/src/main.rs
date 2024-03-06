@@ -77,8 +77,18 @@ mod app {
 
     #[local]
     struct LocalResources {
-        in2: gpio::Pin<'B', 0, gpio::Output>,
-        in1: gpio::Pin<'B', 1, gpio::Output>,
+        // in2: gpio::Pin<'B', 0, gpio::Output>,
+        // in1: gpio::Pin<'B', 1, gpio::Output>,
+        pwm0: stm32h7xx_hal::pwm::Pwm<
+            stm32h7xx_hal::stm32::TIM3,
+            3,
+            stm32h7xx_hal::pwm::ComplementaryImpossible,
+        >,
+        pwm1: stm32h7xx_hal::pwm::Pwm<
+            stm32h7xx_hal::stm32::TIM3,
+            2,
+            stm32h7xx_hal::pwm::ComplementaryImpossible,
+        >,
         led: vecraft::led::Led,
         watchdog: SystemWindowWatchdog,
     }
@@ -115,7 +125,7 @@ mod app {
         // let gpioa = ctx.device.GPIOA.split(ccdr.peripheral.GPIOA);
         let gpiob = ctx.device.GPIOB.split(ccdr.peripheral.GPIOB);
         let gpiod = ctx.device.GPIOD.split(ccdr.peripheral.GPIOD);
-        // let gpioc = ctx.device.GPIOC.split(ccdr.peripheral.GPIOC);
+        let gpioc = ctx.device.GPIOC.split(ccdr.peripheral.GPIOC);
         let gpioe = ctx.device.GPIOE.split(ccdr.peripheral.GPIOE);
 
         // UART
@@ -150,11 +160,28 @@ mod app {
 
         let mut power2_enable = gpioe.pe2.into_push_pull_output();
 
-        let mut in2 = gpiob.pb0.into_push_pull_output();
-        let mut in1 = gpiob.pb1.into_push_pull_output();
+        let (_, (_, _, pwm1, pwm0)) = ctx
+            .device
+            .TIM3
+            .pwm_advanced(
+                (
+                    gpioc.pc6.into_alternate(),
+                    gpioc.pc7.into_alternate(),
+                    gpiob.pb0.into_alternate(),
+                    gpiob.pb1.into_alternate(),
+                ),
+                ccdr.peripheral.TIM3,
+                &ccdr.clocks,
+            )
+            .frequency(100.Hz())
+            .period(32_767)
+            .finalize();
 
-        in1.set_low();
-        in2.set_low();
+        // let mut in2 = gpiob.pb0.into_push_pull_output();
+        // let mut in1 = gpiob.pb1.into_push_pull_output();
+
+        // in1.set_low();
+        // in2.set_low();
 
         power2_enable.set_high();
 
@@ -201,8 +228,10 @@ mod app {
                 canbus1,
             },
             LocalResources {
-                in2,
-                in1,
+                // in2,
+                // in1,
+                pwm0,
+                pwm1,
                 led: vecraft::led::Led::new(
                     gpiob.pb13.into_push_pull_output(),
                     gpiob.pb14.into_push_pull_output(),
@@ -260,7 +289,7 @@ mod app {
         firmware_state::spawn_after(50.millis().into()).unwrap();
     }
 
-    #[task(binds = FDCAN1_IT0, priority = 2, shared = [canbus1, state, console], local = [in1, in2])]
+    #[task(binds = FDCAN1_IT0, priority = 2, shared = [canbus1, state, console], local = [pwm0, pwm1])]
     fn can1_event(mut ctx: can1_event::Context) {
         let is_bus_error = ctx.shared.canbus1.lock(|canbus1| canbus1.is_bus_error());
 
@@ -335,8 +364,8 @@ mod app {
                     if frame.pdu()[3] != PDU_NOT_AVAILABLE
                         && 0b0001_0000 & frame.pdu()[3] == 0b0001_0000
                     {
-                        ctx.local.in1.set_low();
-                        ctx.local.in2.set_low();
+                        // ctx.local.in1.set_low();
+                        // ctx.local.in2.set_low();
 
                         let frame = crate::protocol::volvo_speed_request(
                             crate::protocol::EngineMode::Shutdown,
@@ -390,13 +419,13 @@ mod app {
                         //     .unwrap_or(crate::ENGINE_RPM_MIN)
                         //     .clamp(crate::ENGINE_RPM_MIN, crate::ENGINE_RPM_MAX);
 
-                        if frame.pdu()[1] == 0b1100_0011 {
-                            ctx.local.in1.set_high();
-                            ctx.local.in2.set_low();
-                        } else {
-                            ctx.local.in1.set_low();
-                            ctx.local.in2.set_low();
-                        }
+                        // if frame.pdu()[1] == 0b1100_0011 {
+                        //     ctx.local.in1.set_high();
+                        //     ctx.local.in2.set_low();
+                        // } else {
+                        //     ctx.local.in1.set_low();
+                        //     ctx.local.in2.set_low();
+                        // }
 
                         // let mode = match frame.pdu()[1].engine_mode {
                         //     spn::EngineMode::SpeedControl => crate::protocol::EngineMode::Nominal,
@@ -418,6 +447,15 @@ mod app {
 
                         // ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
                     }
+                }
+                PGN::ProprietaryB(65_283) => {
+                    let value = u16::from_le_bytes([frame.pdu()[0], frame.pdu()[1]]);
+
+                    ctx.local.pwm0.set_duty(value);
+                    ctx.local.pwm0.enable();
+
+                    ctx.local.pwm1.set_duty(0);
+                    ctx.local.pwm1.enable();
                 }
                 _ => {}
             }
