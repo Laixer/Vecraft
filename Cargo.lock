@@ -226,9 +226,9 @@ dependencies = [
 
 [[package]]
 name = "j1939"
-version = "0.1.19"
+version = "0.1.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6e7c3c13c467718fae37829c765e9663c9b59cd448346ec644e7979cb1145563"
+checksum = "2831b42623c89731b3a66a3482be645d0cf4e17fd54c5da6e767b3cc53f51b7a"
 
 [[package]]
 name = "lock_api"

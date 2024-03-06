@@ -1,16 +1,16 @@
 use vecraft::j1939::{Frame, FrameBuilder, IdBuilder, PGN};
 
-#[allow(dead_code)]
+/// Engine mode.
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub enum EngineMode {
     /// Engine shutdown.
     Shutdown = 0b0000_0111,
     /// Engine starter locked.
-    Locked = 0b0100_0111,
+    _Locked = 0b0100_0111,
     /// Engine running at requested speed.
-    Nominal = 0b0100_0011,
+    _Nominal = 0b0100_0011,
     /// Engine starter engaged.
-    Starting = 0b1100_0011,
+    _Starting = 0b1100_0011,
 }
 
 pub fn volvo_speed_request(engine_mode: EngineMode, rpm: u16) -> Frame {
