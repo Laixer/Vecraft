@@ -160,7 +160,7 @@ mod app {
 
         let mut power2_enable = gpioe.pe2.into_push_pull_output();
 
-        let (_, (_, _, pwm1, pwm0)) = ctx
+        let (_, (_, _, mut pwm1, mut pwm0)) = ctx
             .device
             .TIM3
             .pwm_advanced(
@@ -176,6 +176,12 @@ mod app {
             .frequency(100.Hz())
             .period(32_767)
             .finalize();
+
+        pwm0.set_duty(0);
+        pwm0.enable();
+
+        pwm1.set_duty(0);
+        pwm1.enable();
 
         // let mut in2 = gpiob.pb0.into_push_pull_output();
         // let mut in1 = gpiob.pb1.into_push_pull_output();
@@ -381,44 +387,41 @@ mod app {
                     );
 
                     if let Some(rpm) = message.rpm {
-                        if rpm < 700 {
-                            ctx.local.pwm0.set_duty(0);
-                            ctx.local.pwm0.enable();
+                        // if rpm < 700 {
+                        //     ctx.local.pwm0.set_duty(0);
+                        //     ctx.local.pwm0.enable();
 
-                            ctx.local.pwm1.set_duty(0);
-                            ctx.local.pwm1.enable();
-                        } else if rpm < 1050 {
-                            let value = 24_500;
+                        //     ctx.local.pwm1.set_duty(0);
+                        //     ctx.local.pwm1.enable();
+                        // } else
 
-                            ctx.local.pwm0.set_duty(value);
-                            ctx.local.pwm0.enable();
+                        let duty = match rpm {
+                            ..=1049 => 24_500,
+                            1050..=1549 => 22_500,
+                            1550..=u16::MAX => 20_500,
+                        };
 
-                            ctx.local.pwm1.set_duty(0);
-                            ctx.local.pwm1.enable();
-                        } else if rpm < 1550 {
-                            let value = 22_500;
+                        ctx.local.pwm0.set_duty(duty);
 
-                            ctx.local.pwm0.set_duty(value);
-                            ctx.local.pwm0.enable();
+                        // if rpm < 1050 {
+                        //     let value = 24_500;
 
-                            ctx.local.pwm1.set_duty(0);
-                            ctx.local.pwm1.enable();
-                        }
+                        //     ctx.local.pwm0.set_duty(value);
+                        //     ctx.local.pwm0.enable();
+
+                        //     ctx.local.pwm1.set_duty(0);
+                        //     ctx.local.pwm1.enable();
+                        // } else if rpm < 1550 {
+                        //     let value = 22_500;
+
+                        //     ctx.local.pwm0.set_duty(value);
+                        //     ctx.local.pwm0.enable();
+
+                        //     ctx.local.pwm1.set_duty(0);
+                        //     ctx.local.pwm1.enable();
+                        // }
                     }
                 }
-                // PGN::TorqueSpeedControl1 => {
-                //     let rpm = u16::from_le_bytes([frame.pdu()[6], frame.pdu()[7]]);
-
-                //     spn::TorqueSpeedControl1Message::from_pdu(frame.pdu()),
-
-                //     let value = u16::from_le_bytes([frame.pdu()[0], frame.pdu()[1]]);
-
-                //     ctx.local.pwm0.set_duty(value);
-                //     ctx.local.pwm0.enable();
-
-                //     ctx.local.pwm1.set_duty(0);
-                //     ctx.local.pwm1.enable();
-                // }
                 // PGN::TorqueSpeedControl1 => {
                 //     // TODO: Filter on destination address until the CAN filter is implemented
                 //     if frame.id().destination_address() == Some(crate::J1939_ADDRESS)
