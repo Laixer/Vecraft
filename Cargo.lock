@@ -226,9 +226,9 @@ dependencies = [
 
 [[package]]
 name = "j1939"
-version = "0.1.24"
+version = "0.1.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2831b42623c89731b3a66a3482be645d0cf4e17fd54c5da6e767b3cc53f51b7a"
+checksum = "18f1ce4a249267d7ad1ebe3214773342731f2f29f9e904892ef026a598860ae0"
 
 [[package]]
 name = "lock_api"
@@ -302,9 +302,9 @@ dependencies = [
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.78"
+version = "1.0.79"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e2422ad645d89c99f8f3e6b88a9fdeca7fabeac836b1002371c4367c8f984aae"
+checksum = "e835ff2298f5721608eb1a980ecaee1aef2c132bf95ecc026a11b7bf3c01c02e"
 dependencies = [
  "unicode-ident",
 ]
