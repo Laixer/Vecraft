@@ -28,7 +28,7 @@ const FDCAN_CLOCK: Hertz = Hertz::MHz(32);
 const USART_CLOCK: Hertz = Hertz::MHz(48);
 
 /// J1939 network address.
-const J1939_ADDRESS: u8 = 0x0;
+const J1939_ADDRESS: u8 = 0x12;
 /// J1939 name manufacturer code.
 ///
 const J1939_NAME_MANUFACTURER_CODE: u16 = 0x717;
@@ -387,14 +387,6 @@ mod app {
                     );
 
                     if let Some(rpm) = message.rpm {
-                        // if rpm < 700 {
-                        //     ctx.local.pwm0.set_duty(0);
-                        //     ctx.local.pwm0.enable();
-
-                        //     ctx.local.pwm1.set_duty(0);
-                        //     ctx.local.pwm1.enable();
-                        // } else
-
                         let duty = match rpm {
                             ..=1049 => 24_500,
                             1050..=1549 => 22_500,
@@ -402,24 +394,6 @@ mod app {
                         };
 
                         ctx.local.pwm0.set_duty(duty);
-
-                        // if rpm < 1050 {
-                        //     let value = 24_500;
-
-                        //     ctx.local.pwm0.set_duty(value);
-                        //     ctx.local.pwm0.enable();
-
-                        //     ctx.local.pwm1.set_duty(0);
-                        //     ctx.local.pwm1.enable();
-                        // } else if rpm < 1550 {
-                        //     let value = 22_500;
-
-                        //     ctx.local.pwm0.set_duty(value);
-                        //     ctx.local.pwm0.enable();
-
-                        //     ctx.local.pwm1.set_duty(0);
-                        //     ctx.local.pwm1.enable();
-                        // }
                     }
                 }
                 // PGN::TorqueSpeedControl1 => {
