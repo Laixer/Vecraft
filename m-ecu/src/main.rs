@@ -155,6 +155,7 @@ mod app {
             // TODO: Add filter
             vecraft::can::CanBuilder::new(ctx.device.FDCAN1.fdcan(tx, rx, fdcan_prec), pd3)
                 .set_bit_timing(vecraft::can::BITRATE_250K)
+                .set_default_filter(crate::J1939_ADDRESS)
                 .build()
         };
 
@@ -249,7 +250,7 @@ mod app {
         )
     }
 
-    #[task(shared = [state, canbus1], local = [led, watchdog])]
+    #[task(priority = 2, shared = [state, canbus1], local = [led, watchdog])]
     fn firmware_state(mut ctx: firmware_state::Context) {
         let is_bus_ok = ctx.shared.canbus1.lock(|canbus1| canbus1.is_bus_ok());
 
@@ -396,49 +397,9 @@ mod app {
                         ctx.local.pwm0.set_duty(duty);
                     }
                 }
-                // PGN::TorqueSpeedControl1 => {
-                //     // TODO: Filter on destination address until the CAN filter is implemented
-                //     if frame.id().destination_address() == Some(crate::J1939_ADDRESS)
-                //         && frame.pdu()[0] != PDU_NOT_AVAILABLE
-                //     {
-                //         let message = spn::TorqueSpeedControl1Message::from_pdu(frame.pdu());
-
-                //         let rpm = message
-                //             .speed
-                //             .unwrap_or(crate::ENGINE_RPM_MIN)
-                //             .clamp(crate::ENGINE_RPM_MIN, crate::ENGINE_RPM_MAX);
-
-                //         let mode = match message.override_control_mode {
-                //             spn::OverrideControlMode::SpeedControl => {
-                //                 crate::protocol::EngineMode::Nominal
-                //             }
-                //             spn::OverrideControlMode::SpeedTorqueLimitControl => {
-                //                 crate::protocol::EngineMode::Starting
-                //             }
-                //             _ => crate::protocol::EngineMode::Locked,
-                //         };
-
-                //         if mode == crate::protocol::EngineMode::Starting {
-                //             ctx.local.in1.set_high();
-                //             ctx.local.in2.set_low();
-                //         } else {
-                //             ctx.local.in1.set_low();
-                //             ctx.local.in2.set_low();
-                //         }
-
-                //         let frame = crate::protocol::volvo_speed_request(mode, rpm);
-
-                //         ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
-                //     }
-                // }
                 PGN::ProprietaryB(65_282) => {
                     if frame.id().destination_address() == Some(0x11) {
                         // let message = spn::VolvoSpeedRequest::from_pdu(frame.pdu());
-
-                        // let rpm = message
-                        //     .speed
-                        //     .unwrap_or(crate::ENGINE_RPM_MIN)
-                        //     .clamp(crate::ENGINE_RPM_MIN, crate::ENGINE_RPM_MAX);
 
                         // if frame.pdu()[1] == 0b1100_0011 {
                         //     ctx.local.in1.set_high();

@@ -136,7 +136,7 @@ mod app {
 
             vecraft::can::CanBuilder::new(ctx.device.FDCAN1.fdcan(tx, rx, fdcan_prec), pd3)
                 .set_bit_timing(vecraft::can::BITRATE_250K)
-                .set_net_address_filter(crate::J1939_ADDRESS)
+                .set_default_filter(crate::J1939_ADDRESS)
                 .build()
         };
 
@@ -295,7 +295,7 @@ mod app {
         )
     }
 
-    #[task(shared = [state, canbus1, gate_lock], local = [led, watchdog])]
+    #[task(priority = 2, shared = [state, canbus1, gate_lock], local = [led, watchdog])]
     fn firmware_state(mut ctx: firmware_state::Context) {
         let is_bus_ok = ctx.shared.canbus1.lock(|canbus1| canbus1.is_bus_ok());
 
