@@ -89,21 +89,37 @@ impl<I: fdcan::Instance, P: stm32h7xx_hal::hal::digital::v2::OutputPin> CanBuild
         self
     }
 
-    pub fn set_net_address_filter(mut self, address: u8) -> Self {
-        let filter = j1939::can::destination_address_filter(address);
+    pub fn set_default_filter(mut self, address: u8) -> Self {
+        // Source address filter
+        // BitMaskFilter {
+        //     filter: (address as u32),
+        //     mask: 0xFF,
+        // }
 
         self.fdcan.set_extended_filter(
             ExtendedFilterSlot::_0,
             ExtendedFilter {
                 filter: FilterType::BitMask {
-                    filter: filter.filter,
-                    mask: filter.mask,
+                    filter: 0xF00000,
+                    mask: 0xF00000,
+                },
+                action: Action::StoreInFifo0,
+            },
+        );
+        self.fdcan.set_extended_filter(
+            ExtendedFilterSlot::_1,
+            ExtendedFilter {
+                filter: FilterType::BitMask {
+                    filter: (address as u32) << 8,
+                    mask: 0xFF00,
                 },
                 action: Action::StoreInFifo0,
             },
         );
         self.fdcan
-            .set_extended_filter(ExtendedFilterSlot::_1, ExtendedFilter::reject_all());
+            .set_extended_filter(ExtendedFilterSlot::_2, ExtendedFilter::reject_all());
+        self.fdcan
+            .set_extended_filter(ExtendedFilterSlot::_3, ExtendedFilter::reject_all());
         self
     }
 
