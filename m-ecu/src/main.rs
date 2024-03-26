@@ -91,6 +91,7 @@ mod app {
         >,
         led: vecraft::led::Led,
         watchdog: SystemWindowWatchdog,
+        toggle: bool,
     }
 
     #[init]
@@ -193,6 +194,7 @@ mod app {
         power2_enable.set_high();
 
         firmware_state::spawn().ok();
+        // firmware_test::spawn().ok();
 
         watchdog.start(75.millis());
 
@@ -245,6 +247,7 @@ mod app {
                     gpiob.pb12.into_push_pull_output(),
                 ),
                 watchdog,
+                toggle: false,
             },
             init::Monotonics(mono),
         )
@@ -294,6 +297,19 @@ mod app {
         ctx.local.watchdog.feed();
 
         firmware_state::spawn_after(50.millis().into()).unwrap();
+    }
+
+    #[task(priority = 2, shared = [state, canbus1], local = [toggle])]
+    fn firmware_test(mut ctx: firmware_test::Context) {
+        if *ctx.local.toggle {
+            *ctx.local.toggle = false;
+            ctx.shared.state.lock(|state| state.set_ident(false));
+        } else {
+            *ctx.local.toggle = true;
+            ctx.shared.state.lock(|state| state.set_ident(true));
+        }
+
+        firmware_test::spawn_after(500.millis().into()).unwrap();
     }
 
     #[task(binds = FDCAN1_IT0, priority = 2, shared = [canbus1, state, console], local = [pwm0, pwm1])]
