@@ -9,6 +9,5 @@ resolver = "2"
 members = [
   "hcu",
   "m-ecu",
-  "v-ecu",
   "vecraft"
 ]

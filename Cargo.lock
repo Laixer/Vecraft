@@ -13,9 +13,9 @@ dependencies = [
 
 [[package]]
 name = "autocfg"
-version = "1.1.0"
+version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
+checksum = "f1fdabc7756949593fe60f30ec81974b613357de856987752631dea1e3394c80"
 
 [[package]]
 name = "bare-metal"
@@ -437,7 +437,6 @@ dependencies = [
  "nb 1.1.0",
  "paste",
  "stm32h7",
- "synopsys-usb-otg",
  "void",
 ]
 
@@ -450,18 +449,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-ident",
-]
-
-[[package]]
-name = "synopsys-usb-otg"
-version = "0.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "678f3707a7b1fd4863023292c42f73c6bab0e9b0096f41ae612d1af0ff221b45"
-dependencies = [
- "cortex-m",
- "embedded-hal",
- "usb-device",
- "vcell",
 ]
 
 [[package]]
@@ -486,19 +473,6 @@ name = "usb-device"
 version = "0.2.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1f6cc3adc849b5292b4075fc0d5fdcf2f24866e88e336dd27a8943090a520508"
-
-[[package]]
-name = "v-ecu"
-version = "0.4.5"
-dependencies = [
- "cortex-m-rtic",
- "fdcan",
- "panic-halt",
- "stm32h7xx-hal",
- "systick-monotonic",
- "usb-device",
- "vecraft",
-]
 
 [[package]]
 name = "vcell"
