@@ -18,6 +18,7 @@ pub mod usb_frame;
 
 pub use led::{LedState, RGBLed};
 
+// TODO: Rename to reboot
 /// Trigger a full system reset.
 #[inline]
 pub fn sys_reset() {

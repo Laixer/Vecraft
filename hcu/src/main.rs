@@ -1,7 +1,8 @@
-#![deny(unsafe_code)]
-#![deny(warnings)]
 #![no_main]
 #![no_std]
+#![deny(warnings)]
+#![deny(unsafe_code)]
+// #![deny(missing_docs)]
 
 use vecraft::panic_halt as _;
 
@@ -242,6 +243,7 @@ mod app {
         gate_control.reset();
 
         firmware_state::spawn().ok();
+        // commit_config::spawn_after(1.minutes().into()).ok();
 
         watchdog.start(75.millis());
         watchdog.listen(EarlyWakeup);
@@ -299,6 +301,13 @@ mod app {
             },
             init::Monotonics(mono),
         )
+    }
+
+    #[task(priority = 1, shared = [state, canbus1, gate_lock])]
+    fn commit_config(_: commit_config::Context) {
+        // TODO: Write all to EEPROM
+
+        commit_config::spawn_after(1.minutes().into()).ok();
     }
 
     #[task(priority = 2, shared = [state, canbus1, gate_lock], local = [led, watchdog])]
@@ -443,6 +452,7 @@ mod app {
                     }
                 }
                 PGN::ProprietarilyConfigurableMessage1 => {
+                    // TODO: Forgo the payload header.
                     if frame.pdu()[0] == b'Z' && frame.pdu()[1] == b'C' {
                         if frame.pdu()[2] & 0b1 == 1 {
                             ctx.shared.state.lock(|state| state.set_ident(true));
