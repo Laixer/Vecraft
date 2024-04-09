@@ -9,6 +9,7 @@ pub use systick_monotonic::Systick;
 
 pub mod can;
 pub mod console;
+pub mod eeprom;
 pub mod led;
 pub mod lsgc;
 pub mod state;
