@@ -70,7 +70,7 @@ mod app {
 
     #[local]
     struct LocalResources {
-        led: vecraft::led::Led,
+        led: vecraft::RGBLed,
         gate_control: vecraft::lsgc::GateControl,
         watchdog: SystemWindowWatchdog,
     }
@@ -283,7 +283,7 @@ mod app {
                 gate_lock,
             },
             LocalResources {
-                led: vecraft::led::Led::new(
+                led: vecraft::RGBLed::new(
                     gpiob.pb13.into_push_pull_output(),
                     gpiob.pb14.into_push_pull_output(),
                     gpiob.pb12.into_push_pull_output(),
@@ -312,7 +312,7 @@ mod app {
 
         ctx.local
             .led
-            .set_color(&state.as_led(), &vecraft::led::LedState::On);
+            .set_color(&state.as_led(), &vecraft::LedState::On);
 
         let id = IdBuilder::from_pgn(PGN::Other(65_288))
             .sa(crate::J1939_ADDRESS)
