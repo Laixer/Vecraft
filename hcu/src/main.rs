@@ -132,6 +132,7 @@ mod app {
             .kernel_clk_mux(rcc::rec::FdcanClkSel::Pll1Q);
 
         // TODO: From config: Id, bit timing, default filter, termination
+        // TODO: Add filter in 3 steps: Broadcast PGN, DA and optional SA
         let mut canbus1 = {
             let rx = gpiod.pd0.into_alternate().speed(gpio::Speed::VeryHigh);
             let tx = gpiod.pd1.into_alternate().speed(gpio::Speed::VeryHigh);
@@ -251,7 +252,7 @@ mod app {
         // TOOD: Move to vecraft module
         {
             // TODO: Read all from EEPROM
-            // TODO: Make an identity number based on debug and firmware version
+            // TODO: Make an identity number based on debug and firmware version + debug/release
             let name = NameBuilder::default()
                 .identity_number(0x1)
                 .manufacturer_code(crate::J1939_NAME_MANUFACTURER_CODE)
