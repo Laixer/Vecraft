@@ -162,7 +162,7 @@ mod app {
             }
         };
 
-        let config = vecraft::VecraftConfig::try_from(&vecraft_config_default[..]).unwrap();
+        let config_default = vecraft::VecraftConfig::try_from(&vecraft_config_default[..]).unwrap();
 
         const VECRAFT_CONFIG_PAGE: u16 = VECRAFT_CONFIG_DEFAULT_PAGE + (128 * 250);
 
@@ -174,7 +174,14 @@ mod app {
             }
         };
 
-        let _config_current = vecraft::VecraftConfig::try_from(&vecraft_config[..]).unwrap();
+        let config = if let Ok(config) = vecraft::VecraftConfig::try_from(&vecraft_config[..]) {
+            config
+        } else {
+            eeprom
+                .write(VECRAFT_CONFIG_PAGE, &vecraft_config_default)
+                .unwrap();
+            config_default
+        };
 
         // UART
         let mut console = vecraft::console::Console::new(
