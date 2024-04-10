@@ -1,7 +1,8 @@
-#![deny(unsafe_code)]
-#![deny(warnings)]
 #![no_main]
 #![no_std]
+#![deny(warnings)]
+#![deny(unsafe_code)]
+// #![deny(missing_docs)]
 
 use vecraft::panic_halt as _;
 
@@ -45,7 +46,6 @@ const J1939_NAME_VEHICLE_SYSTEM: u8 = 9;
 // const ENGINE_RPM_MIN: u16 = 700;
 // /// Engine RPM maximum.
 // const ENGINE_RPM_MAX: u16 = 2300;
-
 mod protocol;
 
 #[rtic::app(device = stm32h7xx_hal::stm32, peripherals = true, dispatchers = [USART1, USART2])]
@@ -130,13 +130,76 @@ mod app {
         // let gpioc = ctx.device.GPIOC.split(ccdr.peripheral.GPIOC);
         let gpioe = ctx.device.GPIOE.split(ccdr.peripheral.GPIOE);
 
+        // Configure the SCL and the SDA pin for our I2C bus
+        let scl = gpiob.pb8.into_alternate_open_drain();
+        let sda = gpiob.pb9.into_alternate_open_drain();
+
+        let i2c = ctx
+            .device
+            .I2C1
+            .i2c((scl, sda), 400.kHz(), ccdr.peripheral.I2C1, &ccdr.clocks);
+
+        let mut eeprom = vecraft::eeprom::Eeprom::new(i2c);
+
+        // let vecraft_config_init = [
+        //     // Header + version + firmware mode
+        //     b'L', b'X', b'R', 0x1, 0x17, 0xFF, 0xFF, 0xF,
+        //     // Serial number
+        //     0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8,
+        //     // Reserved
+        //     0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+        //     0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+        //     // UART
+        //     0x2, 0x0, 0xC2, 0x1, 0x0, 0xFF, 0xFF, 0xFF,
+        //     // Canbus 1
+        //     0x90, 0xD0, 0x3, 0x0, 0x0, 0xFF, 0xFF, 0xFF,
+        //     // J1939
+        //     0x15, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7,
+        //     0x08, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+        // ];
+
+        // eeprom.write(0, &vecraft_config_init).unwrap();
+
+        let vecraft_config = loop {
+            let mut vecraft_config = [0; 64];
+            let rs = eeprom.read(0, &mut vecraft_config);
+            // if let Err(e) = rs {
+            //     panic!("EEPROM read error: {:?}", e);
+            // }
+            if rs.is_ok() {
+                break vecraft_config;
+            }
+        };
+
+        let vecraft_header = &vecraft_config[0..3];
+        let vecraft_version = vecraft_config[3];
+        let vecraft_mode = vecraft_config[4];
+
+        if vecraft_header != b"LXR" {
+            panic!("Invalid EEPROM header");
+        }
+        if vecraft_version != 0x1 {
+            panic!("Invalid EEPROM version");
+        }
+        if vecraft_mode != 0x17 {
+            panic!("Invalid EEPROM mode");
+        }
+
+        let _vecraft_serial = &vecraft_config[8..16];
+        let _uart_selected = vecraft_config[32];
+        let uart_baudrate = u32::from_le_bytes(vecraft_config[33..37].try_into().unwrap());
+        let _canbus1_bitrate = u32::from_le_bytes(vecraft_config[40..44].try_into().unwrap());
+        let canbus1_termination = vecraft_config[44];
+        let j1939_address = vecraft_config[48];
+        let _j1939_name = &vecraft_config[49..58];
+
         // UART
         let mut console = vecraft::console::Console::new(
             ctx.device
                 .USART2
                 .serial(
                     (gpiod.pd5.into_alternate(), gpiod.pd6.into_alternate()),
-                    115200.bps(),
+                    uart_baudrate.bps(),
                     ccdr.peripheral.USART2,
                     &ccdr.clocks,
                 )
@@ -157,7 +220,8 @@ mod app {
             // TODO: Add filter
             vecraft::can::CanBuilder::new(ctx.device.FDCAN1.fdcan(tx, rx, fdcan_prec), pd3)
                 .set_bit_timing(vecraft::can::BITRATE_250K)
-                .set_default_filter(crate::J1939_ADDRESS)
+                .set_default_filter(j1939_address)
+                .set_termination(canbus1_termination == 1)
                 .build()
         };
 
@@ -210,7 +274,7 @@ mod app {
                 .vehicle_system(crate::J1939_NAME_VEHICLE_SYSTEM)
                 .build();
 
-            canbus1.send(protocol::address_claimed(crate::J1939_ADDRESS, name));
+            canbus1.send(protocol::address_claimed(j1939_address, name));
         }
 
         {
@@ -224,7 +288,7 @@ mod app {
             writeln!(console).ok();
             writeln!(console, "    Firmware : {}", crate::PKG_NAME).ok();
             writeln!(console, "    Version  : {}", crate::PKG_VERSION).ok();
-            writeln!(console, "    Address  : 0x{:X?}", crate::J1939_ADDRESS).ok();
+            writeln!(console, "    Address  : 0x{:X?}", j1939_address).ok();
             writeln!(console).ok();
             writeln!(console, "  Laixer Equipment B.V.").ok();
             writeln!(console, "   Copyright (C) 2024").ok();
@@ -268,7 +332,7 @@ mod app {
 
             state.state()
         });
-        
+
         ctx.local
             .led
             .set_color(&state.as_led(), &vecraft::LedState::On);
@@ -318,7 +382,7 @@ mod app {
     fn start_timeout(mut ctx: start_timeout::Context) {
         ctx.shared.in1.lock(|in1| in1.set_low());
         ctx.shared.in2.lock(|in2| in2.set_low());
-        ctx.shared.state.lock(|state| state.set_ident(false));                
+        ctx.shared.state.lock(|state| state.set_ident(false));
     }
 
     #[task(binds = FDCAN1_IT0, priority = 2, shared = [canbus1, state, console, in1, in2], local = [is_starting])]
@@ -396,15 +460,15 @@ mod app {
                     // if frame.pdu()[3] != PDU_NOT_AVAILABLE
                     //     && 0b0001_0000 & frame.pdu()[3] == 0b0001_0000
                     // {
-                        // ctx.local.in1.set_low();
-                        // ctx.local.in2.set_low();
+                    // ctx.local.in1.set_low();
+                    // ctx.local.in2.set_low();
 
-                        // let frame = crate::protocol::volvo_speed_request(
-                        //     crate::protocol::EngineMode::Shutdown,
-                        //     crate::ENGINE_RPM_MIN,
-                        // );
+                    // let frame = crate::protocol::volvo_speed_request(
+                    //     crate::protocol::EngineMode::Shutdown,
+                    //     crate::ENGINE_RPM_MIN,
+                    // );
 
-                        // ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
+                    // ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
                     // }
                 }
                 PGN::ElectronicEngineController1 => {
@@ -445,7 +509,6 @@ mod app {
                     // }
                 }
                 PGN::ProprietaryB(65_282) => {
-
                     if frame.id().sa() == 0x11 {
                         // let message =
                         //     vecraft::j1939::spn::ElectronicEngineController1Message::from_pdu(
@@ -464,35 +527,35 @@ mod app {
                     }
                     // if frame.id().destination_address() == Some(0x11) {
 
-                        // let message = spn::VolvoSpeedRequest::from_pdu(frame.pdu());
+                    // let message = spn::VolvoSpeedRequest::from_pdu(frame.pdu());
 
-                        // if frame.pdu()[1] == 0b1100_0011 {
-                        //     ctx.local.in1.set_high();
-                        //     ctx.local.in2.set_low();
-                        // } else {
-                        //     ctx.local.in1.set_low();
-                        //     ctx.local.in2.set_low();
-                        // }
+                    // if frame.pdu()[1] == 0b1100_0011 {
+                    //     ctx.local.in1.set_high();
+                    //     ctx.local.in2.set_low();
+                    // } else {
+                    //     ctx.local.in1.set_low();
+                    //     ctx.local.in2.set_low();
+                    // }
 
-                        // let mode = match frame.pdu()[1].engine_mode {
-                        //     spn::EngineMode::SpeedControl => crate::protocol::EngineMode::Nominal,
-                        //     spn::EngineMode::SpeedTorqueLimitControl => {
-                        //         crate::protocol::EngineMode::Starting
-                        //     }
-                        //     _ => crate::protocol::EngineMode::Locked,
-                        // };
+                    // let mode = match frame.pdu()[1].engine_mode {
+                    //     spn::EngineMode::SpeedControl => crate::protocol::EngineMode::Nominal,
+                    //     spn::EngineMode::SpeedTorqueLimitControl => {
+                    //         crate::protocol::EngineMode::Starting
+                    //     }
+                    //     _ => crate::protocol::EngineMode::Locked,
+                    // };
 
-                        // if mode == crate::protocol::EngineMode::Starting {
-                        //     ctx.local.in1.set_high();
-                        //     ctx.local.in2.set_low();
-                        // } else {
-                        //     ctx.local.in1.set_low();
-                        //     ctx.local.in2.set_low();
-                        // }
+                    // if mode == crate::protocol::EngineMode::Starting {
+                    //     ctx.local.in1.set_high();
+                    //     ctx.local.in2.set_low();
+                    // } else {
+                    //     ctx.local.in1.set_low();
+                    //     ctx.local.in2.set_low();
+                    // }
 
-                        // let frame = crate::protocol::volvo_speed_request(mode, rpm);
+                    // let frame = crate::protocol::volvo_speed_request(mode, rpm);
 
-                        // ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
+                    // ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
                     // }
                 }
                 // PGN::ProprietaryB(65_283) => {
