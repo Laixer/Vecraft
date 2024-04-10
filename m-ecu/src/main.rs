@@ -271,7 +271,7 @@ mod app {
 
         ctx.local
             .led
-            .set_color(&state.as_led(), &vecraft::led::LedState::On);
+            .set_color(&state.as_led(), &vecraft::LedState::On);
 
         let id = IdBuilder::from_pgn(PGN::Other(65_288))
             .sa(crate::J1939_ADDRESS)

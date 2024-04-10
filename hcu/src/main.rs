@@ -1,7 +1,8 @@
-#![deny(unsafe_code)]
-#![deny(warnings)]
 #![no_main]
 #![no_std]
+#![deny(warnings)]
+#![deny(unsafe_code)]
+// #![deny(missing_docs)]
 
 use vecraft::panic_halt as _;
 
@@ -70,7 +71,7 @@ mod app {
 
     #[local]
     struct LocalResources {
-        led: vecraft::led::Led,
+        led: vecraft::RGBLed,
         gate_control: vecraft::lsgc::GateControl,
         watchdog: SystemWindowWatchdog,
     }
@@ -101,6 +102,8 @@ mod app {
         ccdr.peripheral
             .kernel_usart234578_clk_mux(rcc::rec::Usart234578ClkSel::Pll3Q);
 
+        // TODO: Call EEPROM, read Vecraft configuration, if not available, set default configuration
+
         let mut watchdog = SystemWindowWatchdog::new(ctx.device.WWDG, &ccdr);
 
         // GPIO
@@ -116,7 +119,7 @@ mod app {
                 .USART2
                 .serial(
                     (gpiod.pd5.into_alternate(), gpiod.pd6.into_alternate()),
-                    115200.bps(),
+                    115200.bps(), // TODO: Make this configurable
                     ccdr.peripheral.USART2,
                     &ccdr.clocks,
                 )
@@ -128,20 +131,18 @@ mod app {
             .FDCAN
             .kernel_clk_mux(rcc::rec::FdcanClkSel::Pll1Q);
 
+        // TODO: From config: Id, bit timing, default filter, termination
         let mut canbus1 = {
             let rx = gpiod.pd0.into_alternate().speed(gpio::Speed::VeryHigh);
             let tx = gpiod.pd1.into_alternate().speed(gpio::Speed::VeryHigh);
+            let termination = gpiod.pd3.into_push_pull_output();
 
-            let pd3 = gpiod.pd3.into_push_pull_output();
-
-            vecraft::can::CanBuilder::new(ctx.device.FDCAN1.fdcan(tx, rx, fdcan_prec), pd3)
+            vecraft::can::CanBuilder::new(ctx.device.FDCAN1.fdcan(tx, rx, fdcan_prec), termination)
                 .set_bit_timing(vecraft::can::BITRATE_250K)
                 .set_default_filter(crate::J1939_ADDRESS)
+                // .set_termination(termination)
                 .build()
         };
-
-        let power_swtich1 = gpiod.pd11.into_push_pull_output();
-        let power_swtich2 = gpioa.pa12.into_push_pull_output();
 
         let (_, (pwm_high1, pwm_low1, pwm_high2, pwm_low2)) = ctx
             .device
@@ -211,6 +212,9 @@ mod app {
             .period(32_767)
             .finalize();
 
+        let power_swtich1 = gpiod.pd11.into_push_pull_output();
+        let power_swtich2 = gpioa.pa12.into_push_pull_output();
+
         let gate0 = vecraft::lsgc::Gate::new(pwm_high0, pwm_low0);
         let gate1 = vecraft::lsgc::Gate::new(pwm_high1, pwm_low1);
         let gate2 = vecraft::lsgc::Gate::new(pwm_high2, pwm_low2);
@@ -239,11 +243,14 @@ mod app {
         gate_control.reset();
 
         firmware_state::spawn().ok();
+        // commit_config::spawn_after(1.minutes().into()).ok();
 
         watchdog.start(75.millis());
         watchdog.listen(EarlyWakeup);
 
+        // TOOD: Move to vecraft module
         {
+            // TODO: Read all from EEPROM
             // TODO: Make an identity number based on debug and firmware version
             let name = NameBuilder::default()
                 .identity_number(0x1)
@@ -257,6 +264,7 @@ mod app {
             canbus1.send(protocol::address_claimed(crate::J1939_ADDRESS, name));
         }
 
+        // TOOD: Move to vecraft module
         {
             use core::fmt::Write;
 
@@ -283,7 +291,7 @@ mod app {
                 gate_lock,
             },
             LocalResources {
-                led: vecraft::led::Led::new(
+                led: vecraft::RGBLed::new(
                     gpiob.pb13.into_push_pull_output(),
                     gpiob.pb14.into_push_pull_output(),
                     gpiob.pb12.into_push_pull_output(),
@@ -293,6 +301,13 @@ mod app {
             },
             init::Monotonics(mono),
         )
+    }
+
+    #[task(priority = 1, shared = [state, canbus1, gate_lock])]
+    fn commit_config(_: commit_config::Context) {
+        // TODO: Write all to EEPROM
+
+        commit_config::spawn_after(1.minutes().into()).ok();
     }
 
     #[task(priority = 2, shared = [state, canbus1, gate_lock], local = [led, watchdog])]
@@ -312,7 +327,7 @@ mod app {
 
         ctx.local
             .led
-            .set_color(&state.as_led(), &vecraft::led::LedState::On);
+            .set_color(&state.as_led(), &vecraft::LedState::On);
 
         let id = IdBuilder::from_pgn(PGN::Other(65_288))
             .sa(crate::J1939_ADDRESS)
@@ -437,6 +452,7 @@ mod app {
                     }
                 }
                 PGN::ProprietarilyConfigurableMessage1 => {
+                    // TODO: Forgo the payload header.
                     if frame.pdu()[0] == b'Z' && frame.pdu()[1] == b'C' {
                         if frame.pdu()[2] & 0b1 == 1 {
                             ctx.shared.state.lock(|state| state.set_ident(true));

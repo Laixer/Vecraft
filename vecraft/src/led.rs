@@ -11,7 +11,7 @@ pub enum LedState {
     Toggle,
 }
 
-pub struct Led {
+pub struct RGBLed {
     green: PinLedGreen,
     blue: PinLedBlue,
     red: PinLedRed,
@@ -29,16 +29,22 @@ impl Color {
     }
 }
 
-/// Predefined color orange.
-pub const ORANGE: Color = Color::new(true, true, false);
 /// Predefined color red.
 pub const RED: Color = Color::new(true, false, false);
 /// Predefined color green.
 pub const GREEN: Color = Color::new(false, true, false);
 /// Predefined color blue.
 pub const BLUE: Color = Color::new(false, false, true);
+/// Predefined color yellow.
+pub const YELLOW: Color = Color::new(true, true, false);
+/// Predefined color magenta.
+pub const MAGENTA: Color = Color::new(true, false, true);
+/// Predefined color cyan.
+pub const CYAN: Color = Color::new(false, true, true);
+/// Predefined color white.
+pub const _WHITE: Color = Color::new(true, true, true);
 
-impl Led {
+impl RGBLed {
     pub fn new(green: PinLedGreen, blue: PinLedBlue, red: PinLedRed) -> Self {
         let mut led_self = Self { green, blue, red };
         led_self.set_green(&LedState::Off);
