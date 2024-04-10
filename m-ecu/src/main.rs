@@ -28,8 +28,8 @@ const FDCAN_CLOCK: Hertz = Hertz::MHz(32);
 /// USART peripheral clock.
 const USART_CLOCK: Hertz = Hertz::MHz(48);
 
-/// J1939 network address.
-const J1939_ADDRESS: u8 = 0x12;
+// /// J1939 network address.
+// // const J1939_ADDRESS: u8 = 0x12;
 /// J1939 name manufacturer code.
 ///
 const J1939_NAME_MANUFACTURER_CODE: u16 = 0x717;
@@ -47,6 +47,12 @@ const J1939_NAME_VEHICLE_SYSTEM: u8 = 9;
 // /// Engine RPM maximum.
 // const ENGINE_RPM_MAX: u16 = 2300;
 mod protocol;
+
+#[derive(Copy, Clone, Debug)]
+pub struct Config {
+    pub sa: u8,
+    pub da: u8,
+}
 
 #[rtic::app(device = stm32h7xx_hal::stm32, peripherals = true, dispatchers = [USART1, USART2])]
 mod app {
@@ -70,6 +76,7 @@ mod app {
         in2: gpio::Pin<'B', 0, gpio::Output>,
         in1: gpio::Pin<'B', 1, gpio::Output>,
         state: vecraft::state::System,
+        config: crate::Config,
         console: vecraft::console::Console,
         canbus1: vecraft::can::Can<
             stm32h7xx_hal::can::Can<stm32h7xx_hal::stm32::FDCAN1>,
@@ -141,73 +148,33 @@ mod app {
 
         let mut eeprom = vecraft::eeprom::Eeprom::new(i2c);
 
-        // EEPROM
-        // Header + version + firmware mode: [0x4C, 0x58, 0x52, 0x1, 0x16, 0xFF, 0xFF, 0xF]
-        // Serial number: [0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8]
+        // eeprom
+        //     .write(VECRAFT_CONFIG_PAGE, &vecraft_config_init)
+        //     .unwrap();
 
-        // Uart
-        // Selection : [2]
-        // Baudrate  : [0, 194, 1, 0]
+        const VECRAFT_CONFIG_DEFAULT_PAGE: u16 = 0;
 
-        // Canbus 1
-        // bit timing  : [144, 208, 3, 0]
-        // Termination : [0]
-
-        // J1939
-        // Address : [0x4A]
-        // Name    : [0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8]
-
-        // let vecraft_config_init = [
-        //     // Header + version + firmware mode
-        //     b'L', b'X', b'R', 0x1, 0x17, 0xFF, 0xFF, 0xF,
-        //     // Serial number
-        //     0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8,
-        //     // Reserved
-        //     0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-        //     0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-        //     // UART
-        //     0x2, 0x0, 0xC2, 0x1, 0x0, 0xFF, 0xFF, 0xFF,
-        //     // Canbus 1
-        //     0x90, 0xD0, 0x3, 0x0, 0x0, 0xFF, 0xFF, 0xFF,
-        //     // J1939
-        //     0x15, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7,
-        //     0x08, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-        // ];
-
-        // eeprom.write(0, &vecraft_config_init).unwrap();
-
-        let vecraft_config = loop {
+        let vecraft_config_default = loop {
             let mut vecraft_config = [0; 64];
-            let rs = eeprom.read(0, &mut vecraft_config);
-            // if let Err(e) = rs {
-            //     panic!("EEPROM read error: {:?}", e);
-            // }
+            let rs = eeprom.read(VECRAFT_CONFIG_DEFAULT_PAGE, &mut vecraft_config);
             if rs.is_ok() {
                 break vecraft_config;
             }
         };
 
-        let vecraft_header = &vecraft_config[0..3];
-        let vecraft_version = vecraft_config[3];
-        let vecraft_mode = vecraft_config[4];
+        let config = vecraft::VecraftConfig::try_from(&vecraft_config_default[..]).unwrap();
 
-        if vecraft_header != b"LXR" {
-            panic!("Invalid EEPROM header");
-        }
-        if vecraft_version != 0x1 {
-            panic!("Invalid EEPROM version");
-        }
-        if vecraft_mode != 0x17 {
-            panic!("Invalid EEPROM mode");
-        }
+        const VECRAFT_CONFIG_PAGE: u16 = VECRAFT_CONFIG_DEFAULT_PAGE + (128 * 250);
 
-        let _vecraft_serial = &vecraft_config[8..16];
-        let _uart_selected = vecraft_config[32];
-        let uart_baudrate = u32::from_le_bytes(vecraft_config[33..37].try_into().unwrap());
-        let _canbus1_bitrate = u32::from_le_bytes(vecraft_config[40..44].try_into().unwrap());
-        let canbus1_termination = vecraft_config[44];
-        let j1939_address = vecraft_config[48];
-        let _j1939_name = &vecraft_config[49..58];
+        let vecraft_config = loop {
+            let mut vecraft_config = [0; 64];
+            let rs = eeprom.read(VECRAFT_CONFIG_PAGE, &mut vecraft_config);
+            if rs.is_ok() {
+                break vecraft_config;
+            }
+        };
+
+        let _config_current = vecraft::VecraftConfig::try_from(&vecraft_config[..]).unwrap();
 
         // UART
         let mut console = vecraft::console::Console::new(
@@ -215,7 +182,7 @@ mod app {
                 .USART2
                 .serial(
                     (gpiod.pd5.into_alternate(), gpiod.pd6.into_alternate()),
-                    uart_baudrate.bps(),
+                    config.uart_baudrate.bps(),
                     ccdr.peripheral.USART2,
                     &ccdr.clocks,
                 )
@@ -236,8 +203,8 @@ mod app {
             // TODO: Add filter
             vecraft::can::CanBuilder::new(ctx.device.FDCAN1.fdcan(tx, rx, fdcan_prec), pd3)
                 .set_bit_timing(vecraft::can::BITRATE_250K)
-                .set_default_filter(j1939_address)
-                .set_termination(canbus1_termination == 1)
+                .set_default_filter(config.j1939_address())
+                .set_termination(config.canbus1_termination)
                 .build()
         };
 
@@ -290,7 +257,7 @@ mod app {
                 .vehicle_system(crate::J1939_NAME_VEHICLE_SYSTEM)
                 .build();
 
-            canbus1.send(protocol::address_claimed(j1939_address, name));
+            canbus1.send(protocol::address_claimed(config.j1939_address(), name));
         }
 
         {
@@ -304,7 +271,7 @@ mod app {
             writeln!(console).ok();
             writeln!(console, "    Firmware : {}", crate::PKG_NAME).ok();
             writeln!(console, "    Version  : {}", crate::PKG_VERSION).ok();
-            writeln!(console, "    Address  : 0x{:X?}", j1939_address).ok();
+            writeln!(console, "    Address  : 0x{:X?}", config.j1939_address()).ok();
             writeln!(console).ok();
             writeln!(console, "  Laixer Equipment B.V.").ok();
             writeln!(console, "   Copyright (C) 2024").ok();
@@ -316,6 +283,10 @@ mod app {
                 in2,
                 in1,
                 state: vecraft::state::System::boot(),
+                config: crate::Config {
+                    sa: config.j1939_address(),
+                    da: 0x11,
+                },
                 console,
                 canbus1,
             },
@@ -335,8 +306,10 @@ mod app {
         )
     }
 
-    #[task(priority = 2, shared = [state, canbus1], local = [led, watchdog])]
+    #[task(priority = 2, shared = [config, state, canbus1], local = [led, watchdog])]
     fn firmware_state(mut ctx: firmware_state::Context) {
+        let config = ctx.shared.config.lock(|config| *config);
+
         let is_bus_ok = ctx.shared.canbus1.lock(|canbus1| canbus1.is_bus_ok());
 
         let state = ctx.shared.state.lock(|state| {
@@ -354,7 +327,7 @@ mod app {
             .set_color(&state.as_led(), &vecraft::LedState::On);
 
         let id = IdBuilder::from_pgn(PGN::Other(65_288))
-            .sa(crate::J1939_ADDRESS)
+            .sa(config.sa)
             .build();
 
         let uptime = monotonics::now().duration_since_epoch();
@@ -401,8 +374,10 @@ mod app {
         ctx.shared.state.lock(|state| state.set_ident(false));
     }
 
-    #[task(binds = FDCAN1_IT0, priority = 2, shared = [canbus1, state, console, in1, in2], local = [is_starting])]
+    #[task(binds = FDCAN1_IT0, priority = 2, shared = [config, canbus1, state, console, in1, in2], local = [is_starting])]
     fn can1_event(mut ctx: can1_event::Context) {
+        let config = ctx.shared.config.lock(|config| *config);
+
         let is_bus_error = ctx.shared.canbus1.lock(|canbus1| canbus1.is_bus_error());
 
         if is_bus_error {
@@ -419,7 +394,7 @@ mod app {
                     match pgn {
                         PGN::SoftwareIdentification => {
                             let id = IdBuilder::from_pgn(PGN::SoftwareIdentification)
-                                .sa(crate::J1939_ADDRESS)
+                                .sa(config.sa)
                                 .build();
 
                             let frame = FrameBuilder::new(id)
@@ -449,12 +424,12 @@ mod app {
                                 .build();
 
                             ctx.shared.canbus1.lock(|canbus1| {
-                                canbus1.send(protocol::address_claimed(crate::J1939_ADDRESS, name))
+                                canbus1.send(protocol::address_claimed(config.sa, name))
                             });
                         }
                         _ => {
                             ctx.shared.canbus1.lock(|canbus1| {
-                                canbus1.send(protocol::acknowledgement(crate::J1939_ADDRESS, pgn))
+                                canbus1.send(protocol::acknowledgement(config.sa, pgn))
                             });
                         }
                     }
