@@ -141,6 +141,22 @@ mod app {
 
         let mut eeprom = vecraft::eeprom::Eeprom::new(i2c);
 
+        // EEPROM
+        // Header + version + firmware mode: [0x4C, 0x58, 0x52, 0x1, 0x16, 0xFF, 0xFF, 0xF]
+        // Serial number: [0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8]
+
+        // Uart
+        // Selection : [2]
+        // Baudrate  : [0, 194, 1, 0]
+
+        // Canbus 1
+        // bit timing  : [144, 208, 3, 0]
+        // Termination : [0]
+
+        // J1939
+        // Address : [0x4A]
+        // Name    : [0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8]
+
         // let vecraft_config_init = [
         //     // Header + version + firmware mode
         //     b'L', b'X', b'R', 0x1, 0x17, 0xFF, 0xFF, 0xF,
