@@ -8,6 +8,7 @@ pub use panic_halt;
 pub use systick_monotonic::Systick;
 
 pub mod can;
+mod config;
 pub mod console;
 pub mod eeprom;
 mod led;
@@ -16,6 +17,7 @@ pub mod state;
 pub mod usb_avic;
 pub mod usb_frame;
 
+pub use config::VecraftConfig;
 pub use led::{LedState, RGBLed};
 
 // TODO: Rename to reboot
