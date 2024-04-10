@@ -90,7 +90,7 @@ mod app {
         //     2,
         //     stm32h7xx_hal::pwm::ComplementaryImpossible,
         // >,
-        led: vecraft::led::Led,
+        led: vecraft::RGBLed,
         watchdog: SystemWindowWatchdog,
         toggle: bool,
     }
@@ -243,7 +243,7 @@ mod app {
                 is_starting: false,
                 // pwm0,
                 // pwm1,
-                led: vecraft::led::Led::new(
+                led: vecraft::RGBLed::new(
                     gpiob.pb13.into_push_pull_output(),
                     gpiob.pb14.into_push_pull_output(),
                     gpiob.pb12.into_push_pull_output(),
@@ -268,7 +268,7 @@ mod app {
 
             state.state()
         });
-
+        
         ctx.local
             .led
             .set_color(&state.as_led(), &vecraft::LedState::On);
