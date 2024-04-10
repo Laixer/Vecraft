@@ -42,7 +42,7 @@ const J1939_NAME_FUNCTION: u8 = 0x11;
 const J1939_NAME_VEHICLE_SYSTEM: u8 = 9;
 
 /// Engine RPM minimum.
-const ENGINE_RPM_MIN: u16 = 700;
+// const ENGINE_RPM_MIN: u16 = 700;
 // /// Engine RPM maximum.
 // const ENGINE_RPM_MAX: u16 = 2300;
 
@@ -67,6 +67,8 @@ mod app {
 
     #[shared]
     struct SharedResources {
+        in2: gpio::Pin<'B', 0, gpio::Output>,
+        in1: gpio::Pin<'B', 1, gpio::Output>,
         state: vecraft::state::System,
         console: vecraft::console::Console,
         canbus1: vecraft::can::Can<
@@ -77,18 +79,17 @@ mod app {
 
     #[local]
     struct LocalResources {
-        // in2: gpio::Pin<'B', 0, gpio::Output>,
-        // in1: gpio::Pin<'B', 1, gpio::Output>,
-        pwm0: stm32h7xx_hal::pwm::Pwm<
-            stm32h7xx_hal::stm32::TIM3,
-            3,
-            stm32h7xx_hal::pwm::ComplementaryImpossible,
-        >,
-        pwm1: stm32h7xx_hal::pwm::Pwm<
-            stm32h7xx_hal::stm32::TIM3,
-            2,
-            stm32h7xx_hal::pwm::ComplementaryImpossible,
-        >,
+        is_starting: bool,
+        // pwm0: stm32h7xx_hal::pwm::Pwm<
+        //     stm32h7xx_hal::stm32::TIM3,
+        //     3,
+        //     stm32h7xx_hal::pwm::ComplementaryImpossible,
+        // >,
+        // pwm1: stm32h7xx_hal::pwm::Pwm<
+        //     stm32h7xx_hal::stm32::TIM3,
+        //     2,
+        //     stm32h7xx_hal::pwm::ComplementaryImpossible,
+        // >,
         led: vecraft::led::Led,
         watchdog: SystemWindowWatchdog,
         toggle: bool,
@@ -126,7 +127,7 @@ mod app {
         // let gpioa = ctx.device.GPIOA.split(ccdr.peripheral.GPIOA);
         let gpiob = ctx.device.GPIOB.split(ccdr.peripheral.GPIOB);
         let gpiod = ctx.device.GPIOD.split(ccdr.peripheral.GPIOD);
-        let gpioc = ctx.device.GPIOC.split(ccdr.peripheral.GPIOC);
+        // let gpioc = ctx.device.GPIOC.split(ccdr.peripheral.GPIOC);
         let gpioe = ctx.device.GPIOE.split(ccdr.peripheral.GPIOE);
 
         // UART
@@ -162,34 +163,34 @@ mod app {
 
         let mut power2_enable = gpioe.pe2.into_push_pull_output();
 
-        let (_, (_, _, mut pwm1, mut pwm0)) = ctx
-            .device
-            .TIM3
-            .pwm_advanced(
-                (
-                    gpioc.pc6.into_alternate(),
-                    gpioc.pc7.into_alternate(),
-                    gpiob.pb0.into_alternate(),
-                    gpiob.pb1.into_alternate(),
-                ),
-                ccdr.peripheral.TIM3,
-                &ccdr.clocks,
-            )
-            .frequency(100.Hz())
-            .period(32_767)
-            .finalize();
+        // let (_, (_, _, mut pwm1, mut pwm0)) = ctx
+        //     .device
+        //     .TIM3
+        //     .pwm_advanced(
+        //         (
+        //             gpioc.pc6.into_alternate(),
+        //             gpioc.pc7.into_alternate(),
+        //             gpiob.pb0.into_alternate(),
+        //             gpiob.pb1.into_alternate(),
+        //         ),
+        //         ccdr.peripheral.TIM3,
+        //         &ccdr.clocks,
+        //     )
+        //     .frequency(100.Hz())
+        //     .period(32_767)
+        //     .finalize();
 
-        pwm0.set_duty(0);
-        pwm0.enable();
+        // pwm0.set_duty(0);
+        // pwm0.enable();
 
-        pwm1.set_duty(0);
-        pwm1.enable();
+        // pwm1.set_duty(0);
+        // pwm1.enable();
 
-        // let mut in2 = gpiob.pb0.into_push_pull_output();
-        // let mut in1 = gpiob.pb1.into_push_pull_output();
+        let mut in2 = gpiob.pb0.into_push_pull_output();
+        let mut in1 = gpiob.pb1.into_push_pull_output();
 
-        // in1.set_low();
-        // in2.set_low();
+        in1.set_low();
+        in2.set_low();
 
         power2_enable.set_high();
 
@@ -232,15 +233,16 @@ mod app {
 
         (
             SharedResources {
+                in2,
+                in1,
                 state: vecraft::state::System::boot(),
                 console,
                 canbus1,
             },
             LocalResources {
-                // in2,
-                // in1,
-                pwm0,
-                pwm1,
+                is_starting: false,
+                // pwm0,
+                // pwm1,
                 led: vecraft::led::Led::new(
                     gpiob.pb13.into_push_pull_output(),
                     gpiob.pb14.into_push_pull_output(),
@@ -312,7 +314,14 @@ mod app {
         firmware_test::spawn_after(500.millis().into()).unwrap();
     }
 
-    #[task(binds = FDCAN1_IT0, priority = 2, shared = [canbus1, state, console], local = [pwm0, pwm1])]
+    #[task(priority = 2, shared = [in1, in2, state], local = [])]
+    fn start_timeout(mut ctx: start_timeout::Context) {
+        ctx.shared.in1.lock(|in1| in1.set_low());
+        ctx.shared.in2.lock(|in2| in2.set_low());
+        ctx.shared.state.lock(|state| state.set_ident(false));                
+    }
+
+    #[task(binds = FDCAN1_IT0, priority = 2, shared = [canbus1, state, console, in1, in2], local = [is_starting])]
     fn can1_event(mut ctx: can1_event::Context) {
         let is_bus_error = ctx.shared.canbus1.lock(|canbus1| canbus1.is_bus_error());
 
@@ -384,37 +393,77 @@ mod app {
                     }
                 }
                 PGN::ElectronicBrakeController1 => {
-                    if frame.pdu()[3] != PDU_NOT_AVAILABLE
-                        && 0b0001_0000 & frame.pdu()[3] == 0b0001_0000
-                    {
+                    // if frame.pdu()[3] != PDU_NOT_AVAILABLE
+                    //     && 0b0001_0000 & frame.pdu()[3] == 0b0001_0000
+                    // {
                         // ctx.local.in1.set_low();
                         // ctx.local.in2.set_low();
 
-                        let frame = crate::protocol::volvo_speed_request(
-                            crate::protocol::EngineMode::Shutdown,
-                            crate::ENGINE_RPM_MIN,
-                        );
+                        // let frame = crate::protocol::volvo_speed_request(
+                        //     crate::protocol::EngineMode::Shutdown,
+                        //     crate::ENGINE_RPM_MIN,
+                        // );
 
-                        ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
-                    }
+                        // ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
+                    // }
                 }
                 PGN::ElectronicEngineController1 => {
-                    let message = vecraft::j1939::spn::ElectronicEngineController1Message::from_pdu(
-                        frame.pdu(),
-                    );
+                    // if frame.id().sa() == 0x14 {
+                    //     let message =
+                    //         vecraft::j1939::spn::ElectronicEngineController1Message::from_pdu(
+                    //             frame.pdu(),
+                    //         );
 
-                    if let Some(rpm) = message.rpm {
-                        let duty = match rpm {
-                            ..=1049 => 24_500,
-                            1050..=1549 => 22_500,
-                            1550..=u16::MAX => 20_500,
-                        };
+                    //     if let Some(
+                    //         vecraft::j1939::spn::EngineStarterMode::StarterActiveGearEngaged,
+                    //     ) = message.starter_mode
+                    //     {
+                    //         // *ctx.local.is_starting = true;
+                    //         ctx.local.in1.set_high();
+                    //         ctx.local.in2.set_low();
+                    //     } else if let Some(
+                    //         vecraft::j1939::spn::EngineStarterMode::StarterActiveGearNotEngaged,
+                    //     ) = message.starter_mode
+                    //     {
+                    //         ctx.local.in1.set_high();
+                    //         ctx.local.in2.set_low();
+                    //     } else {
+                    //         // TODO: should be set off when engine is started (finished) or when nothing is send from the ECM
+                    //         ctx.local.in1.set_low();
+                    //         ctx.local.in2.set_low();
+                    //     }
+                    // }
+                    // Used for hydrolic pump
+                    // if let Some(rpm) = message.rpm {
+                    //     let duty = match rpm {
+                    //         ..=1049 => 24_500,
+                    //         1050..=1549 => 22_500,
+                    //         1550..=u16::MAX => 20_500,
+                    //     };
 
-                        ctx.local.pwm0.set_duty(duty);
-                    }
+                    //     ctx.local.pwm0.set_duty(duty);
+                    // }
                 }
                 PGN::ProprietaryB(65_282) => {
-                    if frame.id().destination_address() == Some(0x11) {
+
+                    if frame.id().sa() == 0x11 {
+                        // let message =
+                        //     vecraft::j1939::spn::ElectronicEngineController1Message::from_pdu(
+                        //         frame.pdu(),
+                        //     );
+
+                        if frame.pdu()[1] == 0b1100_0011 && !*ctx.local.is_starting {
+                            *ctx.local.is_starting = true;
+                            ctx.shared.in1.lock(|in1| in1.set_high());
+                            ctx.shared.in2.lock(|in2| in2.set_low());
+                            ctx.shared.state.lock(|state| state.set_ident(true));
+                            start_timeout::spawn_after(1_500.millis().into()).unwrap();
+                        } else if frame.pdu()[1] != 0b1100_0011 {
+                            *ctx.local.is_starting = false;
+                        }
+                    }
+                    // if frame.id().destination_address() == Some(0x11) {
+
                         // let message = spn::VolvoSpeedRequest::from_pdu(frame.pdu());
 
                         // if frame.pdu()[1] == 0b1100_0011 {
@@ -444,17 +493,17 @@ mod app {
                         // let frame = crate::protocol::volvo_speed_request(mode, rpm);
 
                         // ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
-                    }
+                    // }
                 }
-                PGN::ProprietaryB(65_283) => {
-                    let value = u16::from_le_bytes([frame.pdu()[0], frame.pdu()[1]]);
+                // PGN::ProprietaryB(65_283) => {
+                //     let value = u16::from_le_bytes([frame.pdu()[0], frame.pdu()[1]]);
 
-                    ctx.local.pwm0.set_duty(value);
-                    ctx.local.pwm0.enable();
+                //     ctx.local.pwm0.set_duty(value);
+                //     ctx.local.pwm0.enable();
 
-                    ctx.local.pwm1.set_duty(0);
-                    ctx.local.pwm1.enable();
-                }
+                //     ctx.local.pwm1.set_duty(0);
+                //     ctx.local.pwm1.enable();
+                // }
                 _ => {}
             }
         }
