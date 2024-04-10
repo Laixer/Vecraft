@@ -46,7 +46,7 @@ const J1939_NAME_VEHICLE_SYSTEM: u8 = 9;
 // const ENGINE_RPM_MIN: u16 = 700;
 // /// Engine RPM maximum.
 // const ENGINE_RPM_MAX: u16 = 2300;
-mod protocol;
+// mod protocol;
 
 #[derive(Copy, Clone, Debug)]
 pub struct Config {
@@ -414,15 +414,13 @@ mod app {
                                     crate::PKG_VERSION_MINOR.parse::<u8>().unwrap(),
                                     crate::PKG_VERSION_PATCH.parse::<u8>().unwrap(),
                                     FIELD_DELIMITER,
-                                    PDU_NOT_AVAILABLE,
-                                    PDU_NOT_AVAILABLE,
-                                    PDU_NOT_AVAILABLE,
                                 ])
                                 .build();
 
                             ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
                         }
                         PGN::AddressClaimed => {
+                            // TODO: Get the name from the EEPROM
                             // TODO: Make an identity number based on debug and firmware version
                             let name = NameBuilder::default()
                                 .identity_number(0x1)
@@ -456,21 +454,6 @@ mod app {
                             vecraft::sys_reset();
                         }
                     }
-                }
-                PGN::ElectronicBrakeController1 => {
-                    // if frame.pdu()[3] != PDU_NOT_AVAILABLE
-                    //     && 0b0001_0000 & frame.pdu()[3] == 0b0001_0000
-                    // {
-                    // ctx.local.in1.set_low();
-                    // ctx.local.in2.set_low();
-
-                    // let frame = crate::protocol::volvo_speed_request(
-                    //     crate::protocol::EngineMode::Shutdown,
-                    //     crate::ENGINE_RPM_MIN,
-                    // );
-
-                    // ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
-                    // }
                 }
                 PGN::ElectronicEngineController1 => {
                     // if frame.id().sa() == 0x14 {
@@ -512,9 +495,20 @@ mod app {
                 PGN::ProprietaryB(65_282) => {
                     if frame.id().sa() == 0x11 {
                         // let message =
-                        //     vecraft::j1939::spn::ElectronicEngineController1Message::from_pdu(
-                        //         frame.pdu(),
-                        //     );
+                        //     crate::protocol::VolvoSpeedRequestMessage::from_pdu(frame.pdu());
+
+                        // if message.engine_mode == Some(crate::protocol::EngineMode::Starting) {
+                        //     if !*ctx.local.is_starting {
+                        //         *ctx.local.is_starting = true;
+                        //         ctx.shared.in1.lock(|in1| in1.set_high());
+                        //         ctx.shared.in2.lock(|in2| in2.set_low());
+                        //         ctx.shared.state.lock(|state| state.set_ident(true));
+                        //     }
+                        // } else {
+                        //     *ctx.local.is_starting = false;
+                        //     ctx.shared.in1.lock(|in1| in1.set_low());
+                        //     ctx.shared.in2.lock(|in2| in2.set_low());
+                        // }
 
                         if frame.pdu()[1] == 0b1100_0011 && !*ctx.local.is_starting {
                             *ctx.local.is_starting = true;
@@ -526,48 +520,7 @@ mod app {
                             *ctx.local.is_starting = false;
                         }
                     }
-                    // if frame.id().destination_address() == Some(0x11) {
-
-                    // let message = spn::VolvoSpeedRequest::from_pdu(frame.pdu());
-
-                    // if frame.pdu()[1] == 0b1100_0011 {
-                    //     ctx.local.in1.set_high();
-                    //     ctx.local.in2.set_low();
-                    // } else {
-                    //     ctx.local.in1.set_low();
-                    //     ctx.local.in2.set_low();
-                    // }
-
-                    // let mode = match frame.pdu()[1].engine_mode {
-                    //     spn::EngineMode::SpeedControl => crate::protocol::EngineMode::Nominal,
-                    //     spn::EngineMode::SpeedTorqueLimitControl => {
-                    //         crate::protocol::EngineMode::Starting
-                    //     }
-                    //     _ => crate::protocol::EngineMode::Locked,
-                    // };
-
-                    // if mode == crate::protocol::EngineMode::Starting {
-                    //     ctx.local.in1.set_high();
-                    //     ctx.local.in2.set_low();
-                    // } else {
-                    //     ctx.local.in1.set_low();
-                    //     ctx.local.in2.set_low();
-                    // }
-
-                    // let frame = crate::protocol::volvo_speed_request(mode, rpm);
-
-                    // ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
-                    // }
                 }
-                // PGN::ProprietaryB(65_283) => {
-                //     let value = u16::from_le_bytes([frame.pdu()[0], frame.pdu()[1]]);
-
-                //     ctx.local.pwm0.set_duty(value);
-                //     ctx.local.pwm0.enable();
-
-                //     ctx.local.pwm1.set_duty(0);
-                //     ctx.local.pwm1.enable();
-                // }
                 _ => {}
             }
         }
