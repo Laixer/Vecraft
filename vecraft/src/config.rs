@@ -63,16 +63,19 @@ impl VecraftConfig {
         self.ecu_mode
     }
 
-    pub fn serial_number(&self) -> [u8; 8] {
-        self.serial_number
+    pub fn serial_number(&self) -> (u32, u32) {
+        (
+            u32::from_le_bytes(self.serial_number[0..4].try_into().unwrap()),
+            u32::from_le_bytes(self.serial_number[4..8].try_into().unwrap()),
+        )
     }
 
     pub fn j1939_address(&self) -> u8 {
         self.j1939_address
     }
 
-    pub fn j1939_name(&self) -> [u8; 8] {
-        self.j1939_name
+    pub fn j1939_name(&self) -> j1939::Name {
+        j1939::Name::from_bytes(self.j1939_name)
     }
 }
 

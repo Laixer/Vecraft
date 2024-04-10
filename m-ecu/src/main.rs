@@ -256,12 +256,15 @@ mod app {
         {
             // TODO: Make an identity number based on debug and firmware version
             let name = NameBuilder::default()
-                .identity_number(0x1)
-                .manufacturer_code(crate::J1939_NAME_MANUFACTURER_CODE)
-                .function_instance(crate::J1939_NAME_FUNCTION_INSTANCE)
-                .ecu_instance(crate::J1939_NAME_ECU_INSTANCE)
-                .function(crate::J1939_NAME_FUNCTION)
-                .vehicle_system(crate::J1939_NAME_VEHICLE_SYSTEM)
+                .identity_number(config.serial_number().1)
+                .manufacturer_code(config.j1939_name().manufacturer_code)
+                .function_instance(config.j1939_name().function_instance)
+                .ecu_instance(config.j1939_name().ecu_instance)
+                .function(config.j1939_name().function)
+                .vehicle_system(config.j1939_name().vehicle_system)
+                .vehicle_system_instance(config.j1939_name().vehicle_system_instance)
+                .industry_group(config.j1939_name().industry_group)
+                .arbitrary_address(config.j1939_name().arbitrary_address)
                 .build();
 
             canbus1.send(protocol::address_claimed(config.j1939_address(), name));
