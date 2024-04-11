@@ -456,32 +456,7 @@ mod app {
                     }
                 }
                 PGN::ElectronicEngineController1 => {
-                    // if frame.id().sa() == 0x14 {
-                    //     let message =
-                    //         vecraft::j1939::spn::ElectronicEngineController1Message::from_pdu(
-                    //             frame.pdu(),
-                    //         );
-
-                    //     if let Some(
-                    //         vecraft::j1939::spn::EngineStarterMode::StarterActiveGearEngaged,
-                    //     ) = message.starter_mode
-                    //     {
-                    //         // *ctx.local.is_starting = true;
-                    //         ctx.local.in1.set_high();
-                    //         ctx.local.in2.set_low();
-                    //     } else if let Some(
-                    //         vecraft::j1939::spn::EngineStarterMode::StarterActiveGearNotEngaged,
-                    //     ) = message.starter_mode
-                    //     {
-                    //         ctx.local.in1.set_high();
-                    //         ctx.local.in2.set_low();
-                    //     } else {
-                    //         // TODO: should be set off when engine is started (finished) or when nothing is send from the ECM
-                    //         ctx.local.in1.set_low();
-                    //         ctx.local.in2.set_low();
-                    //     }
-                    // }
-                    // Used for hydrolic pump
+                    // Used for hydraulic pump control
                     // if let Some(rpm) = message.rpm {
                     //     let duty = match rpm {
                     //         ..=1049 => 24_500,
