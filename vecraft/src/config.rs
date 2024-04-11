@@ -98,7 +98,7 @@ impl TryFrom<&[u8]> for VecraftConfig {
             canbus1_bitrate: u32::from_le_bytes(value[40..44].try_into().unwrap()),
             canbus1_termination: value[44] != 0,
             j1939_address: value[48],
-            j1939_name: value[49..58].try_into().unwrap(),
+            j1939_name: value[49..57].try_into().unwrap(),
         })
     }
 }
