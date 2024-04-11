@@ -46,7 +46,7 @@ const J1939_NAME_VEHICLE_SYSTEM: u8 = 9;
 // const ENGINE_RPM_MIN: u16 = 700;
 // /// Engine RPM maximum.
 // const ENGINE_RPM_MAX: u16 = 2300;
-// mod protocol;
+mod protocol;
 
 #[derive(Copy, Clone, Debug)]
 pub struct Config {
@@ -494,30 +494,22 @@ mod app {
                 }
                 PGN::ProprietaryB(65_282) => {
                     if frame.id().sa() == 0x11 {
-                        // let message =
-                        //     crate::protocol::VolvoSpeedRequestMessage::from_pdu(frame.pdu());
+                        let message =
+                            crate::protocol::VolvoSpeedRequestMessage::from_pdu(frame.pdu());
 
-                        // if message.engine_mode == Some(crate::protocol::EngineMode::Starting) {
-                        //     if !*ctx.local.is_starting {
-                        //         *ctx.local.is_starting = true;
-                        //         ctx.shared.in1.lock(|in1| in1.set_high());
-                        //         ctx.shared.in2.lock(|in2| in2.set_low());
-                        //         ctx.shared.state.lock(|state| state.set_ident(true));
-                        //     }
-                        // } else {
-                        //     *ctx.local.is_starting = false;
-                        //     ctx.shared.in1.lock(|in1| in1.set_low());
-                        //     ctx.shared.in2.lock(|in2| in2.set_low());
-                        // }
-
-                        if frame.pdu()[1] == 0b1100_0011 && !*ctx.local.is_starting {
-                            *ctx.local.is_starting = true;
-                            ctx.shared.in1.lock(|in1| in1.set_high());
-                            ctx.shared.in2.lock(|in2| in2.set_low());
-                            ctx.shared.state.lock(|state| state.set_ident(true));
-                            start_timeout::spawn_after(1_500.millis().into()).unwrap();
-                        } else if frame.pdu()[1] != 0b1100_0011 {
+                        if message.engine_mode == Some(crate::protocol::EngineMode::Starting) {
+                            if !*ctx.local.is_starting {
+                                *ctx.local.is_starting = true;
+                                ctx.shared.in1.lock(|in1| in1.set_high());
+                                ctx.shared.in2.lock(|in2| in2.set_low());
+                                ctx.shared.state.lock(|state| state.set_ident(true));
+                                start_timeout::spawn_after(1_500.millis().into()).unwrap();
+                            }
+                        } else {
                             *ctx.local.is_starting = false;
+                            ctx.shared.in1.lock(|in1| in1.set_low());
+                            ctx.shared.in2.lock(|in2| in2.set_low());
+                            ctx.shared.state.lock(|state| state.set_ident(false));
                         }
                     }
                 }
