@@ -1,0 +1,18 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug m-ecu windows",
+            "type": "cortex-debug",
+            "request": "launch",
+            "servertype": "openocd",
+            "cwd": "${workspaceFolder}",
+            "executable": "./target/thumbv7em-none-eabihf/debug/m-ecu", // Adjust for your target and project name
+            "gdbPath": "C:/Program Files (x86)/Arm GNU Toolchain arm-none-eabi/13.2 Rel1/bin/arm-none-eabi-gdb.exe",
+            "configFiles": [
+                "openocd.cfg"
+            ],
+            "svdFile": "path/to/your/svd/file.svd" // Optional, for register view
+        }
+    ]
+}
