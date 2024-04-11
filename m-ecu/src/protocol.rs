@@ -28,7 +28,7 @@ impl VolvoSpeedRequestMessage {
                 0b1100_0011 => Some(EngineMode::Starting),
                 _ => None,
             },
-            rpm: Some(u16::from_be_bytes([pdu[6], pdu[7]]) * 10),
+            rpm: Some(pdu[7] as u16 * 10),
         }
     }
 
@@ -42,7 +42,7 @@ impl VolvoSpeedRequestMessage {
             0x00,
             0x00,
             0x20,
-            (self.rpm.unwrap_or(0) / 10) as u8,
+            self.rpm.map_or(0xFF, |rpm| (rpm / 10) as u8),
         ]
     }
 }
