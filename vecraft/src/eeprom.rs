@@ -2,9 +2,9 @@ use stm32h7xx_hal::prelude::*;
 use stm32h7xx_hal::{device::I2C1, i2c::I2c};
 
 const EEPROM_I2C_ADDRESS: u8 = 0x50; // 0b0101_0000
-const _EEPROM_SIZE: usize = 64_000;
+const EEPROM_SIZE: usize = 64_000;
 const EEPROM_PAGE_SIZE: usize = 128;
-const _EEPROM_PAGE_COUNT: usize = _EEPROM_SIZE / EEPROM_PAGE_SIZE;
+const EEPROM_PAGE_COUNT: usize = EEPROM_SIZE / EEPROM_PAGE_SIZE;
 
 /// EEPROM driver
 ///
@@ -19,12 +19,12 @@ impl Eeprom {
     }
 
     pub fn write_page(&mut self, page: usize, buffer: &[u8]) {
-        let offset = (page * EEPROM_PAGE_SIZE) as u16;
+        let offset = (page.max(EEPROM_PAGE_COUNT) * EEPROM_PAGE_SIZE) as u16;
         self.write_wait(offset, buffer);
     }
 
     pub fn read_page(&mut self, page: usize, buffer: &mut [u8]) {
-        let offset = (page * EEPROM_PAGE_SIZE) as u16;
+        let offset = (page.max(EEPROM_PAGE_COUNT) * EEPROM_PAGE_SIZE) as u16;
         self.read_wait(offset, buffer);
     }
 
