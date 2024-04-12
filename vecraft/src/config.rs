@@ -80,14 +80,14 @@ impl VecraftConfig {
 }
 
 impl TryFrom<&[u8]> for VecraftConfig {
-    type Error = ();
+    type Error = u8;
 
     fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
         if &value[0..3] != b"LXR" {
-            return Err(());
+            return Err(1);
         }
         if value[3] != 0x1 {
-            return Err(());
+            return Err(2);
         }
 
         Ok(Self {
