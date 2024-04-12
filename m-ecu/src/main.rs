@@ -212,19 +212,22 @@ mod app {
             .FDCAN
             .kernel_clk_mux(rcc::rec::FdcanClkSel::Pll1Q);
 
+        assert!(config.canbus1_bitrate == 250_000);
+
         let mut canbus1 = {
             let rx = gpiod.pd0.into_alternate().speed(gpio::Speed::VeryHigh);
             let tx = gpiod.pd1.into_alternate().speed(gpio::Speed::VeryHigh);
-
-            let pd3 = gpiod.pd3.into_push_pull_output();
+            let term = gpiod.pd3.into_push_pull_output();
 
             // TODO: Add filter
-            vecraft::can::CanBuilder::new(ctx.device.FDCAN1.fdcan(tx, rx, fdcan_prec), pd3)
+            vecraft::can::CanBuilder::new(ctx.device.FDCAN1.fdcan(tx, rx, fdcan_prec), term)
                 .set_bit_timing(vecraft::can::BITRATE_250K)
                 .set_default_filter(config.j1939_address())
                 .set_termination(config.canbus1_termination)
                 .build()
         };
+
+        assert!(config.ecu_mode() == 0x10);
 
         let mut power2_enable = gpioe.pe2.into_push_pull_output();
 
