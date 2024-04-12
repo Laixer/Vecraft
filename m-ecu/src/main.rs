@@ -50,6 +50,8 @@ mod protocol;
 
 #[derive(Copy, Clone, Debug)]
 pub struct Config {
+    pub is_dirty: bool,
+    pub is_factory_reset: bool,
     pub sa: u8,
     pub da: u8,
 }
@@ -99,7 +101,7 @@ mod app {
         // >,
         led: vecraft::RGBLed,
         watchdog: SystemWindowWatchdog,
-        toggle: bool,
+        eeprom: vecraft::eeprom::Eeprom,
     }
 
     #[init]
@@ -288,6 +290,8 @@ mod app {
                 in1,
                 state: vecraft::state::System::boot(),
                 config: crate::Config {
+                    is_dirty: false,
+                    is_factory_reset: false,
                     sa: config.j1939_address(),
                     da: 0x11,
                 },
@@ -300,13 +304,13 @@ mod app {
                 // pwm1,
                 led,
                 watchdog,
-                toggle: false,
+                eeprom,
             },
             init::Monotonics(mono),
         )
     }
 
-    #[task(priority = 2, shared = [config, state, canbus1], local = [led, watchdog])]
+    #[task(priority = 2, shared = [config, state, canbus1], local = [led, watchdog, eeprom])]
     fn firmware_state(mut ctx: firmware_state::Context) {
         let config = ctx.shared.config.lock(|config| *config);
 
@@ -321,6 +325,22 @@ mod app {
 
             state.state()
         });
+
+        if state == vecraft::state::State::Nominal {
+            if config.is_dirty {
+                // TODO: Write the config to the EEPROM
+                ctx.shared.config.lock(|config| config.is_dirty = false);
+            }
+            if config.is_factory_reset {
+                let mut vecraft_config_default = [0; 64];
+
+                #[rustfmt::skip]
+                ctx.local.eeprom.read_page(vecraft::VECRAFT_CONFIG_PAGE + 250, &mut vecraft_config_default);
+                #[rustfmt::skip]
+                ctx.local.eeprom.write_page(vecraft::VECRAFT_CONFIG_PAGE, &vecraft_config_default);
+                vecraft::sys_reset();
+            }
+        }
 
         ctx.local
             .led
@@ -354,18 +374,18 @@ mod app {
         firmware_state::spawn_after(50.millis().into()).unwrap();
     }
 
-    #[task(priority = 2, shared = [state, canbus1], local = [toggle])]
-    fn firmware_test(mut ctx: firmware_test::Context) {
-        if *ctx.local.toggle {
-            *ctx.local.toggle = false;
-            ctx.shared.state.lock(|state| state.set_ident(false));
-        } else {
-            *ctx.local.toggle = true;
-            ctx.shared.state.lock(|state| state.set_ident(true));
-        }
+    // #[task(priority = 2, shared = [state, canbus1], local = [toggle])]
+    // fn firmware_test(mut ctx: firmware_test::Context) {
+    //     if *ctx.local.toggle {
+    //         *ctx.local.toggle = false;
+    //         ctx.shared.state.lock(|state| state.set_ident(false));
+    //     } else {
+    //         *ctx.local.toggle = true;
+    //         ctx.shared.state.lock(|state| state.set_ident(true));
+    //     }
 
-        firmware_test::spawn_after(500.millis().into()).unwrap();
-    }
+    //     firmware_test::spawn_after(500.millis().into()).unwrap();
+    // }
 
     #[task(priority = 2, shared = [in1, in2, state], local = [])]
     fn start_timeout(mut ctx: start_timeout::Context) {
