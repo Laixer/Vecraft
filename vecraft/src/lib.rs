@@ -17,7 +17,7 @@ pub mod state;
 pub mod usb_avic;
 pub mod usb_frame;
 
-pub use config::{VecraftConfig, VECRAFT_CONFIG_PAGE};
+pub use config::{ConfigError, VecraftConfig, VECRAFT_CONFIG_PAGE};
 pub use led::{LedState, RGBLed};
 
 // TODO: Rename to reboot

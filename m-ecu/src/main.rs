@@ -180,7 +180,7 @@ mod app {
         eeprom.read_page(vecraft::VECRAFT_CONFIG_PAGE, &mut vecraft_config);
 
         let config = match vecraft::VecraftConfig::try_from(&vecraft_config[..]) {
-            Err(1) => {
+            Err(vecraft::ConfigError::InvalidHeader) => {
                 let mut vecraft_config_default = [0; 64];
                 eeprom.read_page(
                     vecraft::VECRAFT_CONFIG_PAGE + 250,
@@ -190,7 +190,7 @@ mod app {
                 vecraft::sys_reset();
                 unreachable!();
             }
-            Err(_) => panic!("Invalid config"),
+            Err(vecraft::ConfigError::InvalidVersion) => panic!("Invalid config"),
             Ok(config) => config,
         };
 

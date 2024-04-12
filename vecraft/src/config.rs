@@ -83,28 +83,32 @@ impl VecraftConfig {
     }
 }
 
+pub enum ConfigError {
+    InvalidHeader,
+    InvalidVersion,
+}
+
 // TODO: Replace with an actual error type
 impl TryFrom<&[u8]> for VecraftConfig {
-    type Error = u8;
+    type Error = ConfigError;
 
     fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
         if value[0..3] != VECRAFT_CONFIG_HEADER {
-            return Err(1);
+            return Err(ConfigError::InvalidHeader);
         }
         if value[3] != VECRAFT_CONFIG_VERSION {
-            return Err(2);
+            return Err(ConfigError::InvalidVersion);
         }
 
-        // TODO: Ignore values that fail to convert
         Ok(Self {
             ecu_mode: value[4],
-            serial_number: value[8..16].try_into().unwrap(),
+            serial_number: value[8..16].try_into().unwrap_or([0; 8]),
             uart_selected: value[32],
-            uart_baudrate: u32::from_le_bytes(value[33..37].try_into().unwrap()),
-            canbus1_bitrate: u32::from_le_bytes(value[40..44].try_into().unwrap()),
+            uart_baudrate: u32::from_le_bytes(value[33..37].try_into().unwrap_or([0; 4])),
+            canbus1_bitrate: u32::from_le_bytes(value[40..44].try_into().unwrap_or([0; 4])),
             canbus1_termination: value[44] != 0,
             j1939_address: value[48],
-            j1939_name: value[49..57].try_into().unwrap(),
+            j1939_name: value[49..57].try_into().unwrap_or([0; 8]),
         })
     }
 }
