@@ -52,8 +52,8 @@ impl VecraftConfig {
 
     pub fn serial_number(&self) -> (u32, u32) {
         (
-            u32::from_le_bytes(self.serial_number[0..4].try_into().unwrap()),
-            u32::from_le_bytes(self.serial_number[4..8].try_into().unwrap()),
+            u32::from_le_bytes(self.serial_number[0..4].try_into().unwrap_or([0; 4])),
+            u32::from_le_bytes(self.serial_number[4..8].try_into().unwrap_or([0; 4])),
         )
     }
 

@@ -501,6 +501,14 @@ mod app {
                         }
                     }
                 }
+                PGN::ProprietarilyConfigurableMessage2 => {
+                    if frame.pdu() == [0x01; 8] {
+                        ctx.shared
+                            .config
+                            .lock(|config| config.is_factory_reset = true);
+                        start_timeout::spawn_after(1_500.millis().into()).unwrap();
+                    }
+                }
                 PGN::ElectronicEngineController1 => {
                     // Used for hydraulic pump control
                     // if let Some(rpm) = message.rpm {
