@@ -14,37 +14,7 @@
 // Address : [0x4A]
 // Name    : [0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8]
 
-// let vecraft_config_init = [
-//     // Header + version + firmware mode
-//     b'L', b'X', b'R', 0x1, 0x17, 0xFF, 0xFF, 0xF,
-//     // Serial number
-//     0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8,
-//     // Reserved
-//     0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-//     0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-//     // UART
-//     0x2, 0x0, 0xC2, 0x1, 0x0, 0xFF, 0xFF, 0xFF,
-//     // Canbus 1
-//     0x90, 0xD0, 0x3, 0x0, 0x0, 0xFF, 0xFF, 0xFF,
-//     // J1939
-//     0x15, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7,
-//     0x08, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-// ];
-
-// const VECRAFT_CONFIG_PAGE: u16 = 0;
-
-// // eeprom.write(VECRAFT_CONFIG_PAGE, &vecraft_config_init).unwrap();
-
-// let vecraft_config = loop {
-//     let mut vecraft_config = [0; 64];
-//     let rs = eeprom.read(VECRAFT_CONFIG_PAGE, &mut vecraft_config);
-//     // if let Err(e) = rs {
-//     //     panic!("EEPROM read error: {:?}", e);
-//     // }
-//     if rs.is_ok() {
-//         break vecraft_config;
-//     }
-// };
+pub const VECRAFT_CONFIG_PAGE: usize = 1;
 
 #[derive(Copy, Clone, Debug)]
 pub struct VecraftConfig {
@@ -79,6 +49,7 @@ impl VecraftConfig {
     }
 }
 
+// TODO: Replace with an actual error type
 impl TryFrom<&[u8]> for VecraftConfig {
     type Error = u8;
 

@@ -160,13 +160,16 @@ mod app {
         );
 
         let mut vecraft_config = [0; 64];
-        eeprom.read_page(1, &mut vecraft_config);
+        eeprom.read_page(vecraft::VECRAFT_CONFIG_PAGE, &mut vecraft_config);
 
         let config = match vecraft::VecraftConfig::try_from(&vecraft_config[..]) {
             Err(1) => {
                 let mut vecraft_config_default = [0; 64];
-                eeprom.read_page(251, &mut vecraft_config_default);
-                eeprom.write_page(1, &vecraft_config_default);
+                eeprom.read_page(
+                    vecraft::VECRAFT_CONFIG_PAGE + 250,
+                    &mut vecraft_config_default,
+                );
+                eeprom.write_page(vecraft::VECRAFT_CONFIG_PAGE, &vecraft_config_default);
                 vecraft::sys_reset();
                 unreachable!();
             }
