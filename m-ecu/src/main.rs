@@ -161,6 +161,21 @@ mod app {
             &vecraft::LedState::On,
         );
 
+        // {
+        //     let mut cfg = vecraft::VecraftConfig::new(
+        //         0x10,
+        //         [0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8],
+        //         [0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8],
+        //     );
+        //     cfg.uart_selected = 0x2;
+        //     cfg.uart_baudrate = 115_200;
+        //     cfg.canbus1_bitrate = 250_000;
+        //     cfg.canbus1_termination = false;
+        //     cfg.j1939_address = 0x12;
+
+        //     eeprom.write_page(vecraft::VECRAFT_CONFIG_PAGE, &cfg.to_bytes());
+        // }
+
         let mut vecraft_config = [0; 64];
         eeprom.read_page(vecraft::VECRAFT_CONFIG_PAGE, &mut vecraft_config);
 
@@ -328,8 +343,23 @@ mod app {
 
         if state == vecraft::state::State::Nominal {
             if config.is_dirty {
-                // TODO: Write the config to the EEPROM
+                // let mut cfg = vecraft::VecraftConfig::new(
+                //     0x10,
+                //     [0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8],
+                //     [0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8],
+                // );
+                // cfg.uart_selected = 0x2;
+                // cfg.uart_baudrate = 115_200;
+                // cfg.canbus1_bitrate = 250_000;
+                // cfg.canbus1_termination = false;
+                // cfg.j1939_address = 0x12;
+
+                // #[rustfmt::skip]
+                // ctx.local.eeprom.write_page(vecraft::VECRAFT_CONFIG_PAGE, &cfg.to_bytes());
+
+                #[rustfmt::skip]
                 ctx.shared.config.lock(|config| config.is_dirty = false);
+                vecraft::sys_reset();
             }
             if config.is_factory_reset {
                 let mut vecraft_config_default = [0; 64];
@@ -338,6 +368,9 @@ mod app {
                 ctx.local.eeprom.read_page(vecraft::VECRAFT_CONFIG_PAGE + 250, &mut vecraft_config_default);
                 #[rustfmt::skip]
                 ctx.local.eeprom.write_page(vecraft::VECRAFT_CONFIG_PAGE, &vecraft_config_default);
+
+                #[rustfmt::skip]
+                ctx.shared.config.lock(|config| config.is_factory_reset = false);
                 vecraft::sys_reset();
             }
         }
