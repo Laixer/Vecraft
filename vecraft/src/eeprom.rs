@@ -19,12 +19,12 @@ impl Eeprom {
     }
 
     pub fn write_page(&mut self, page: usize, buffer: &[u8]) {
-        let offset = (page.max(EEPROM_PAGE_COUNT) * EEPROM_PAGE_SIZE) as u16;
+        let offset = (page.min(EEPROM_PAGE_COUNT) * EEPROM_PAGE_SIZE) as u16;
         self.write_wait(offset, buffer);
     }
 
     pub fn read_page(&mut self, page: usize, buffer: &mut [u8]) {
-        let offset = (page.max(EEPROM_PAGE_COUNT) * EEPROM_PAGE_SIZE) as u16;
+        let offset = (page.min(EEPROM_PAGE_COUNT) * EEPROM_PAGE_SIZE) as u16;
         self.read_wait(offset, buffer);
     }
 
@@ -42,11 +42,12 @@ impl Eeprom {
     }
 
     pub fn write_wait(&mut self, address: u16, buffer: &[u8]) {
-        for _ in 0..100 {
+        for _ in 0..1_000 {
             if self.write(address, buffer).is_ok() {
-                break;
+                return;
             }
         }
+        panic!("Failed to write to EEPROM");
     }
 
     pub fn read(
@@ -64,9 +65,9 @@ impl Eeprom {
     }
 
     pub fn read_wait(&mut self, address: u16, buffer: &mut [u8]) {
-        for _ in 0..100 {
+        loop {
             if self.read(address, buffer).is_ok() {
-                break;
+                return;
             }
         }
     }
