@@ -137,6 +137,12 @@ mod app {
         // let gpioc = ctx.device.GPIOC.split(ccdr.peripheral.GPIOC);
         let gpioe = ctx.device.GPIOE.split(ccdr.peripheral.GPIOE);
 
+        let mut led = vecraft::RGBLed::new(
+            gpiob.pb13.into_push_pull_output(),
+            gpiob.pb14.into_push_pull_output(),
+            gpiob.pb12.into_push_pull_output(),
+        );
+
         // Configure the SCL and the SDA pin for our I2C bus
         let scl = gpiob.pb8.into_alternate_open_drain();
         let sda = gpiob.pb9.into_alternate_open_drain();
@@ -148,39 +154,24 @@ mod app {
 
         let mut eeprom = vecraft::eeprom::Eeprom::new(i2c);
 
-        // eeprom
-        //     .write(VECRAFT_CONFIG_PAGE, &vecraft_config_init)
-        //     .unwrap();
+        led.set_color(
+            &vecraft::state::State::ConfigurationError.as_led(),
+            &vecraft::LedState::On,
+        );
 
-        const VECRAFT_CONFIG_DEFAULT_PAGE: u16 = 0;
+        let mut vecraft_config = [0; 64];
+        eeprom.read_page(1, &mut vecraft_config);
 
-        let vecraft_config_default = loop {
-            let mut vecraft_config = [0; 64];
-            let rs = eeprom.read(VECRAFT_CONFIG_DEFAULT_PAGE, &mut vecraft_config);
-            if rs.is_ok() {
-                break vecraft_config;
+        let config = match vecraft::VecraftConfig::try_from(&vecraft_config[..]) {
+            Err(1) => {
+                let mut vecraft_config_default = [0; 64];
+                eeprom.read_page(251, &mut vecraft_config_default);
+                eeprom.write_page(1, &vecraft_config_default);
+                vecraft::sys_reset();
+                unreachable!();
             }
-        };
-
-        let config_default = vecraft::VecraftConfig::try_from(&vecraft_config_default[..]).unwrap();
-
-        const VECRAFT_CONFIG_PAGE: u16 = VECRAFT_CONFIG_DEFAULT_PAGE + (128 * 250);
-
-        let vecraft_config = loop {
-            let mut vecraft_config = [0; 64];
-            let rs = eeprom.read(VECRAFT_CONFIG_PAGE, &mut vecraft_config);
-            if rs.is_ok() {
-                break vecraft_config;
-            }
-        };
-
-        let config = if let Ok(config) = vecraft::VecraftConfig::try_from(&vecraft_config[..]) {
-            config
-        } else {
-            eeprom
-                .write(VECRAFT_CONFIG_PAGE, &vecraft_config_default)
-                .unwrap();
-            config_default
+            Err(_) => panic!("Invalid config"),
+            Ok(config) => config,
         };
 
         // UART
@@ -304,11 +295,7 @@ mod app {
                 is_starting: false,
                 // pwm0,
                 // pwm1,
-                led: vecraft::RGBLed::new(
-                    gpiob.pb13.into_push_pull_output(),
-                    gpiob.pb14.into_push_pull_output(),
-                    gpiob.pb12.into_push_pull_output(),
-                ),
+                led,
                 watchdog,
                 toggle: false,
             },
