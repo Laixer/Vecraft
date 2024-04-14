@@ -11,8 +11,9 @@
 // Termination : [0]
 //
 // J1939
-// Address : [0x4A]
-// Name    : [0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8]
+// Address        : [0x4A]
+// Name           : [0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8]
+// Source address : [0xFF]
 
 pub const VECRAFT_CONFIG_PAGE: usize = 1;
 
@@ -30,6 +31,7 @@ pub struct VecraftConfig {
     pub canbus1_termination: bool,
     pub j1939_address: u8,
     j1939_name: [u8; 8],
+    pub j1939_source_address: Option<u8>,
 }
 
 impl VecraftConfig {
@@ -43,6 +45,7 @@ impl VecraftConfig {
             canbus1_termination: false,
             j1939_address: 0,
             j1939_name,
+            j1939_source_address: None,
         }
     }
 
@@ -63,6 +66,10 @@ impl VecraftConfig {
 
     pub fn j1939_name(&self) -> j1939::Name {
         j1939::Name::from_bytes(self.j1939_name)
+    }
+
+    pub fn j1939_source_address(&self) -> Option<u8> {
+        self.j1939_source_address
     }
 
     pub fn to_bytes(&self) -> [u8; VECRAFT_CONFIG_SIZE] {
@@ -109,6 +116,7 @@ impl TryFrom<&[u8]> for VecraftConfig {
             canbus1_termination: value[44] != 0,
             j1939_address: value[48],
             j1939_name: value[49..57].try_into().unwrap_or([0; 8]),
+            j1939_source_address: None,
         })
     }
 }
