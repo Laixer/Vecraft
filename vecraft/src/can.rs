@@ -48,6 +48,18 @@ pub const BITRATE_50K: NominalBitTiming = NominalBitTiming {
     sync_jump_width: unsafe { NonZeroU8::new_unchecked(1) },
 };
 
+pub fn bit_timing_from_baudrate(baudrate: u32) -> Option<NominalBitTiming> {
+    match baudrate {
+        1_000_000 => Some(BITRATE_1M),
+        500_000 => Some(BITRATE_500K),
+        250_000 => Some(BITRATE_250K),
+        125_000 => Some(BITRATE_125K),
+        100_000 => Some(BITRATE_100K),
+        50_000 => Some(BITRATE_50K),
+        _ => None,
+    }
+}
+
 pub struct CanBuilder<I: fdcan::Instance, P: stm32h7xx_hal::hal::digital::v2::OutputPin> {
     fdcan: fdcan::FdCan<I, fdcan::ConfigMode>,
     term: P,
