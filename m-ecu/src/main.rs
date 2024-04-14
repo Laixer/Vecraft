@@ -360,6 +360,7 @@ mod app {
                 // cfg.canbus1_bitrate = 250_000;
                 // cfg.canbus1_termination = false;
                 // cfg.j1939_address = 0x12;
+                // cfg.j1939_source_address = 0xFF;
 
                 // #[rustfmt::skip]
                 // ctx.local.eeprom.write_page(vecraft::VECRAFT_CONFIG_PAGE, &cfg.to_bytes());
@@ -469,6 +470,16 @@ mod app {
 
                             ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
                         }
+                        PGN::ComponentIdentification => {
+                            let id = IdBuilder::from_pgn(PGN::ComponentIdentification)
+                                .sa(config.sa)
+                                .build();
+
+                            // TODO: Get the serial number from the EEPROM
+                            let frame = FrameBuilder::new(id).build();
+
+                            ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
+                        }
                         PGN::AddressClaimed => {
                             // TODO: Get the name from the EEPROM
                             // TODO: Make an identity number based on debug and firmware version
@@ -514,6 +525,7 @@ mod app {
                     }
                 }
                 PGN::ElectronicEngineController1 => {
+                    // TODO: Needs tuning, see #15
                     // Used for hydraulic pump control
                     // if let Some(rpm) = message.rpm {
                     //     let duty = match rpm {

@@ -218,6 +218,7 @@ where
         bus_error
     }
 
+    // TODO: Return ProtocolStatus
     pub fn is_bus_ok(&mut self) -> bool {
         let protocol_status = self.0.get_protocol_status();
 
