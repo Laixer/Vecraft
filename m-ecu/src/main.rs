@@ -223,9 +223,10 @@ mod app {
             vecraft::can::CanBuilder::new(ctx.device.FDCAN1.fdcan(tx, rx, fdcan_prec), term)
                 .set_bit_timing(vecraft::can::BITRATE_250K)
                 // .set_bit_timing(vecraft::can::bit_timing_from_baudrate(config.canbus1_bitrate).unwrap_or(vecraft::can::BITRATE_250K))
-                .set_default_filter(config.j1939_address())
+                .set_default_filter(config.j1939_address)
                 // .set_j1939_broadcast_filter()
                 // .set_j1939_destination_address_filter(config.j1939_address())
+                // .set_j1939_destination_address_filter(config.j1939_source_address.unwrap_or(0))
                 .set_termination(config.canbus1_termination)
                 .build()
         };
@@ -284,7 +285,7 @@ mod app {
                 .arbitrary_address(config.j1939_name().arbitrary_address)
                 .build();
 
-            canbus1.send(protocol::address_claimed(config.j1939_address(), name));
+            canbus1.send(protocol::address_claimed(config.j1939_address, name));
         }
 
         {
@@ -298,7 +299,7 @@ mod app {
             writeln!(console).ok();
             writeln!(console, "    Firmware : {}", crate::PKG_NAME).ok();
             writeln!(console, "    Version  : {}", crate::PKG_VERSION).ok();
-            writeln!(console, "    Address  : 0x{:X?}", config.j1939_address()).ok();
+            writeln!(console, "    Address  : 0x{:X?}", config.j1939_address).ok();
             writeln!(console).ok();
             writeln!(console, "  Laixer Equipment B.V.").ok();
             writeln!(console, "   Copyright (C) 2024").ok();
@@ -313,7 +314,7 @@ mod app {
                 config: crate::Config {
                     is_dirty: false,
                     is_factory_reset: false,
-                    sa: config.j1939_address(),
+                    sa: config.j1939_address,
                     da: 0x11,
                 },
                 console,

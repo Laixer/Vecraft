@@ -60,16 +60,8 @@ impl VecraftConfig {
         )
     }
 
-    pub fn j1939_address(&self) -> u8 {
-        self.j1939_address
-    }
-
     pub fn j1939_name(&self) -> j1939::Name {
         j1939::Name::from_bytes(self.j1939_name)
-    }
-
-    pub fn j1939_source_address(&self) -> Option<u8> {
-        self.j1939_source_address
     }
 
     pub fn to_bytes(&self) -> [u8; VECRAFT_CONFIG_SIZE] {
