@@ -223,6 +223,8 @@ mod app {
             vecraft::can::CanBuilder::new(ctx.device.FDCAN1.fdcan(tx, rx, fdcan_prec), term)
                 .set_bit_timing(vecraft::can::BITRATE_250K)
                 .set_default_filter(config.j1939_address())
+                // .set_j1939_broadcast_filter()
+                // .set_j1939_destination_address_filter(config.j1939_address())
                 .set_termination(config.canbus1_termination)
                 .build()
         };
@@ -489,6 +491,7 @@ mod app {
                     }
                 }
                 PGN::ProprietarilyConfigurableMessage1 => {
+                    // TODO: Remove the header
                     if frame.pdu()[0] == b'Z' && frame.pdu()[1] == b'C' {
                         if frame.pdu()[2] & 0b00000001 == 1 {
                             ctx.shared.state.lock(|state| state.set_ident(true));
@@ -506,7 +509,6 @@ mod app {
                         ctx.shared
                             .config
                             .lock(|config| config.is_factory_reset = true);
-                        start_timeout::spawn_after(1_500.millis().into()).unwrap();
                     }
                 }
                 PGN::ElectronicEngineController1 => {
@@ -532,6 +534,7 @@ mod app {
                                 ctx.shared.in1.lock(|in1| in1.set_high());
                                 ctx.shared.in2.lock(|in2| in2.set_low());
                                 ctx.shared.state.lock(|state| state.set_ident(true));
+                                // TODO: Replace with a monotonic timer
                                 start_timeout::spawn_after(1_500.millis().into()).unwrap();
                             }
                         } else {
