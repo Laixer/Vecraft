@@ -187,7 +187,7 @@ mod app {
                     &mut vecraft_config_default,
                 );
                 eeprom.write_page(vecraft::VECRAFT_CONFIG_PAGE, &vecraft_config_default);
-                vecraft::sys_reset();
+                vecraft::sys_reboot();
                 unreachable!();
             }
             Err(vecraft::ConfigError::InvalidVersion) => panic!("Invalid config"),
@@ -366,7 +366,7 @@ mod app {
 
                 #[rustfmt::skip]
                 ctx.shared.config.lock(|config| config.is_dirty = false);
-                vecraft::sys_reset();
+                vecraft::sys_reboot();
             }
             if config.is_factory_reset {
                 let mut vecraft_config_default = [0; 64];
@@ -378,7 +378,7 @@ mod app {
 
                 #[rustfmt::skip]
                 ctx.shared.config.lock(|config| config.is_factory_reset = false);
-                vecraft::sys_reset();
+                vecraft::sys_reboot();
             }
         }
 
@@ -502,7 +502,7 @@ mod app {
                         }
 
                         if frame.pdu()[3] == 0x69 {
-                            vecraft::sys_reset();
+                            vecraft::sys_reboot();
                         }
                     }
                 }

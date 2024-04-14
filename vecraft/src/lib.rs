@@ -20,9 +20,8 @@ pub mod usb_frame;
 pub use config::{ConfigError, VecraftConfig, VECRAFT_CONFIG_PAGE};
 pub use led::{LedState, RGBLed};
 
-// TODO: Rename to reboot
 /// Trigger a full system reset.
 #[inline]
-pub fn sys_reset() {
+pub fn sys_reboot() {
     rtic::export::SCB::sys_reset();
 }

@@ -462,7 +462,7 @@ mod app {
                         }
 
                         if frame.pdu()[3] == 0x69 {
-                            vecraft::sys_reset();
+                            vecraft::sys_reboot();
                         }
                     }
                 }
