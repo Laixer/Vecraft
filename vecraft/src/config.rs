@@ -32,11 +32,15 @@ pub struct VecraftConfig {
     pub j1939_address: u8,
     j1939_name: [u8; 8],
     pub j1939_source_address: Option<u8>,
+    pub is_dirty: bool,
+    pub is_factory_reset: bool,
 }
 
 impl VecraftConfig {
     pub fn new(ecu_mode: u8, serial_number: [u8; 8], j1939_name: [u8; 8]) -> Self {
         Self {
+            is_dirty: false,
+            is_factory_reset: false,
             ecu_mode,
             serial_number,
             uart_selected: 0,
@@ -49,6 +53,7 @@ impl VecraftConfig {
         }
     }
 
+    #[inline]
     pub fn ecu_mode(&self) -> u8 {
         self.ecu_mode
     }
@@ -102,6 +107,8 @@ impl TryFrom<&[u8]> for VecraftConfig {
         }
 
         Ok(Self {
+            is_dirty: false,
+            is_factory_reset: false,
             ecu_mode: value[4],
             serial_number: value[8..16].try_into().unwrap_or([0; 8]),
             uart_selected: value[32],

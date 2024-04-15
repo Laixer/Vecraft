@@ -28,16 +28,16 @@ const FDCAN_CLOCK: Hertz = Hertz::MHz(32);
 /// USART peripheral clock.
 const USART_CLOCK: Hertz = Hertz::MHz(48);
 
-/// J1939 name manufacturer code.
-const J1939_NAME_MANUFACTURER_CODE: u16 = 0x717;
-/// J1939 name function instance.
-const J1939_NAME_FUNCTION_INSTANCE: u8 = 1;
-/// J1939 name ECU instance.
-const J1939_NAME_ECU_INSTANCE: u8 = 1;
-/// J1939 name function.
-const J1939_NAME_FUNCTION: u8 = 0x11;
-/// J1939 name vehicle system.
-const J1939_NAME_VEHICLE_SYSTEM: u8 = 9;
+// /// J1939 name manufacturer code.
+// const J1939_NAME_MANUFACTURER_CODE: u16 = 0x717;
+// /// J1939 name function instance.
+// const J1939_NAME_FUNCTION_INSTANCE: u8 = 1;
+// /// J1939 name ECU instance.
+// const J1939_NAME_ECU_INSTANCE: u8 = 1;
+// /// J1939 name function.
+// const J1939_NAME_FUNCTION: u8 = 0x11;
+// /// J1939 name vehicle system.
+// const J1939_NAME_VEHICLE_SYSTEM: u8 = 9;
 
 /// Engine RPM minimum.
 // const ENGINE_RPM_MIN: u16 = 700;
@@ -45,13 +45,13 @@ const J1939_NAME_VEHICLE_SYSTEM: u8 = 9;
 // const ENGINE_RPM_MAX: u16 = 2300;
 mod protocol;
 
-#[derive(Copy, Clone, Debug)]
-pub struct Config {
-    pub is_dirty: bool,
-    pub is_factory_reset: bool,
-    pub sa: u8,
-    pub da: u8,
-}
+// #[derive(Copy, Clone, Debug)]
+// pub struct Config {
+//     pub is_dirty: bool,
+//     pub is_factory_reset: bool,
+//     pub sa: u8,
+//     pub da: u8,
+// }
 
 #[rtic::app(device = stm32h7xx_hal::stm32, peripherals = true, dispatchers = [USART1, USART2])]
 mod app {
@@ -75,7 +75,7 @@ mod app {
         in2: gpio::Pin<'B', 0, gpio::Output>,
         in1: gpio::Pin<'B', 1, gpio::Output>,
         state: vecraft::state::System,
-        config: crate::Config,
+        config: vecraft::VecraftConfig,
         console: vecraft::console::Console,
         canbus1: vecraft::can::Can<
             stm32h7xx_hal::can::Can<stm32h7xx_hal::stm32::FDCAN1>,
@@ -318,12 +318,7 @@ mod app {
                 in2,
                 in1,
                 state: vecraft::state::System::boot(),
-                config: crate::Config {
-                    is_dirty: false,
-                    is_factory_reset: false,
-                    sa: config.j1939_address,
-                    da: 0x11,
-                },
+                config,
                 console,
                 canbus1,
             },
@@ -395,7 +390,7 @@ mod app {
             .set_color(&state.as_led(), &vecraft::LedState::On);
 
         let id = IdBuilder::from_pgn(PGN::Other(65_288))
-            .sa(config.sa)
+            .sa(config.j1939_address)
             .build();
 
         let uptime = monotonics::now().duration_since_epoch();
@@ -462,7 +457,7 @@ mod app {
                     match pgn {
                         PGN::SoftwareIdentification => {
                             let id = IdBuilder::from_pgn(PGN::SoftwareIdentification)
-                                .sa(config.sa)
+                                .sa(config.j1939_address)
                                 .build();
 
                             let frame = FrameBuilder::new(id)
@@ -479,7 +474,7 @@ mod app {
                         }
                         PGN::ComponentIdentification => {
                             let id = IdBuilder::from_pgn(PGN::ComponentIdentification)
-                                .sa(config.sa)
+                                .sa(config.j1939_address)
                                 .build();
 
                             // TODO: Get the serial number from the EEPROM
@@ -488,24 +483,28 @@ mod app {
                             ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
                         }
                         PGN::AddressClaimed => {
-                            // TODO: Get the name from the EEPROM
                             // TODO: Make an identity number based on debug and firmware version
                             let name = NameBuilder::default()
-                                .identity_number(0x1)
-                                .manufacturer_code(crate::J1939_NAME_MANUFACTURER_CODE)
-                                .function_instance(crate::J1939_NAME_FUNCTION_INSTANCE)
-                                .ecu_instance(crate::J1939_NAME_ECU_INSTANCE)
-                                .function(crate::J1939_NAME_FUNCTION)
-                                .vehicle_system(crate::J1939_NAME_VEHICLE_SYSTEM)
+                                .identity_number(config.serial_number().1)
+                                .manufacturer_code(config.j1939_name().manufacturer_code)
+                                .function_instance(config.j1939_name().function_instance)
+                                .ecu_instance(config.j1939_name().ecu_instance)
+                                .function(config.j1939_name().function)
+                                .vehicle_system(config.j1939_name().vehicle_system)
+                                .vehicle_system_instance(
+                                    config.j1939_name().vehicle_system_instance,
+                                )
+                                .industry_group(config.j1939_name().industry_group)
+                                .arbitrary_address(config.j1939_name().arbitrary_address)
                                 .build();
 
                             ctx.shared.canbus1.lock(|canbus1| {
-                                canbus1.send(protocol::address_claimed(config.sa, name))
+                                canbus1.send(protocol::address_claimed(config.j1939_address, name))
                             });
                         }
                         _ => {
                             ctx.shared.canbus1.lock(|canbus1| {
-                                canbus1.send(protocol::acknowledgement(config.sa, pgn))
+                                canbus1.send(protocol::acknowledgement(config.j1939_address, pgn))
                             });
                         }
                     }
