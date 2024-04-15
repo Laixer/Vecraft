@@ -28,10 +28,7 @@ const FDCAN_CLOCK: Hertz = Hertz::MHz(32);
 /// USART peripheral clock.
 const USART_CLOCK: Hertz = Hertz::MHz(48);
 
-// /// J1939 network address.
-// // const J1939_ADDRESS: u8 = 0x12;
 /// J1939 name manufacturer code.
-///
 const J1939_NAME_MANUFACTURER_CODE: u16 = 0x717;
 /// J1939 name function instance.
 const J1939_NAME_FUNCTION_INSTANCE: u8 = 1;
@@ -172,6 +169,7 @@ mod app {
         //     cfg.canbus1_bitrate = 250_000;
         //     cfg.canbus1_termination = false;
         //     cfg.j1939_address = 0x12;
+        //     cfg.j1939_source_address = None;
 
         //     eeprom.write_page(vecraft::VECRAFT_CONFIG_PAGE, &cfg.to_bytes());
         // }
