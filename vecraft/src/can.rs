@@ -106,42 +106,6 @@ impl<I: fdcan::Instance, P: stm32h7xx_hal::hal::digital::v2::OutputPin> CanBuild
         self
     }
 
-    // TODO: Obsolete
-    pub fn set_default_filter(mut self, address: u8) -> Self {
-        // Source address filter
-        // BitMaskFilter {
-        //     filter: (address as u32),
-        //     mask: 0xFF,
-        // }
-
-        self.fdcan.set_extended_filter(
-            ExtendedFilterSlot::_0,
-            ExtendedFilter {
-                filter: FilterType::BitMask {
-                    filter: 0xF00000,
-                    mask: 0xF00000,
-                },
-                action: Action::StoreInFifo0,
-            },
-        );
-        self.fdcan.set_extended_filter(
-            ExtendedFilterSlot::_1,
-            ExtendedFilter {
-                filter: FilterType::BitMask {
-                    filter: (address as u32) << 8,
-                    mask: 0xFF00,
-                },
-                action: Action::StoreInFifo0,
-            },
-        );
-        // TODO: Default should be disabled
-        self.fdcan
-            .set_extended_filter(ExtendedFilterSlot::_2, ExtendedFilter::reject_all());
-        self.fdcan
-            .set_extended_filter(ExtendedFilterSlot::_3, ExtendedFilter::reject_all());
-        self
-    }
-
     pub fn set_j1939_broadcast_filter(mut self) -> Self {
         self.fdcan.set_extended_filter(
             ExtendedFilterSlot::_0,

@@ -28,8 +28,6 @@ const FDCAN_CLOCK: Hertz = Hertz::MHz(32);
 /// USART peripheral clock.
 const USART_CLOCK: Hertz = Hertz::MHz(48);
 
-/// J1939 network address.
-const J1939_ADDRESS: u8 = 0x4A;
 /// J1939 name manufacturer code.
 const J1939_NAME_MANUFACTURER_CODE: u16 = 0x717;
 /// J1939 name function instance.
@@ -67,6 +65,7 @@ mod app {
             fdcan::NormalOperationMode,
         >,
         gate_lock: vecraft::lsgc::GateLock,
+        config: vecraft::VecraftConfig,
     }
 
     #[local]
@@ -74,6 +73,7 @@ mod app {
         led: vecraft::RGBLed,
         gate_control: vecraft::lsgc::GateControl,
         watchdog: SystemWindowWatchdog,
+        eeprom: vecraft::eeprom::Eeprom,
     }
 
     #[init]
@@ -113,6 +113,64 @@ mod app {
         let gpiod = ctx.device.GPIOD.split(ccdr.peripheral.GPIOD);
         // let gpioe = ctx.device.GPIOE.split(ccdr.peripheral.GPIOE);
 
+        let mut led = vecraft::RGBLed::new(
+            gpiob.pb13.into_push_pull_output(),
+            gpiob.pb14.into_push_pull_output(),
+            gpiob.pb12.into_push_pull_output(),
+        );
+
+        // Configure the SCL and the SDA pin for our I2C bus
+        let scl = gpiob.pb8.into_alternate_open_drain();
+        let sda = gpiob.pb9.into_alternate_open_drain();
+
+        let i2c = ctx
+            .device
+            .I2C1
+            .i2c((scl, sda), 400.kHz(), ccdr.peripheral.I2C1, &ccdr.clocks);
+
+        let mut eeprom = vecraft::eeprom::Eeprom::new(i2c);
+
+        led.set_color(
+            &vecraft::state::State::ConfigurationError.as_led(),
+            &vecraft::LedState::On,
+        );
+
+        // {
+        //     let mut cfg = vecraft::VecraftConfig::new(
+        //         0x15,
+        //         [0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8],
+        //         [0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8],
+        //     );
+        //     cfg.uart_selected = 0x2;
+        //     cfg.uart_baudrate = 115_200;
+        //     cfg.canbus1_bitrate = 250_000;
+        //     cfg.canbus1_termination = false;
+        //     cfg.j1939_address = 0x4A;
+        //     cfg.j1939_source_address = None;
+
+        //     eeprom.write_page(vecraft::VECRAFT_CONFIG_PAGE, &cfg.to_bytes());
+        // }
+
+        let mut vecraft_config = [0; 64];
+        eeprom.read_page(vecraft::VECRAFT_CONFIG_PAGE, &mut vecraft_config);
+
+        let config = match vecraft::VecraftConfig::try_from(&vecraft_config[..]) {
+            Err(vecraft::ConfigError::InvalidHeader) => {
+                let mut vecraft_config_default = [0; 64];
+                eeprom.read_page(
+                    vecraft::VECRAFT_CONFIG_PAGE + 250,
+                    &mut vecraft_config_default,
+                );
+                vecraft::VecraftConfig::try_from(&vecraft_config_default[..])
+                    .expect("No factory config");
+                eeprom.write_page(vecraft::VECRAFT_CONFIG_PAGE, &vecraft_config_default);
+                vecraft::sys_reboot();
+                unreachable!();
+            }
+            Err(vecraft::ConfigError::InvalidVersion) => panic!("Invalid config"),
+            Ok(config) => config,
+        };
+
         // UART
         let mut console = vecraft::console::Console::new(
             ctx.device
@@ -136,14 +194,28 @@ mod app {
         let mut canbus1 = {
             let rx = gpiod.pd0.into_alternate().speed(gpio::Speed::VeryHigh);
             let tx = gpiod.pd1.into_alternate().speed(gpio::Speed::VeryHigh);
-            let termination = gpiod.pd3.into_push_pull_output();
+            let term = gpiod.pd3.into_push_pull_output();
 
-            vecraft::can::CanBuilder::new(ctx.device.FDCAN1.fdcan(tx, rx, fdcan_prec), termination)
-                .set_bit_timing(vecraft::can::BITRATE_250K)
-                .set_default_filter(crate::J1939_ADDRESS)
-                // .set_termination(termination)
-                .build()
+            let builder =
+                vecraft::can::CanBuilder::new(ctx.device.FDCAN1.fdcan(tx, rx, fdcan_prec), term)
+                    .set_bit_timing(
+                        vecraft::can::bit_timing_from_baudrate(config.canbus1_bitrate)
+                            .unwrap_or(vecraft::can::BITRATE_250K),
+                    )
+                    .set_j1939_broadcast_filter()
+                    .set_j1939_destination_address_filter(config.j1939_address)
+                    .set_termination(config.canbus1_termination);
+
+            let builder = if let Some(address) = config.j1939_source_address {
+                builder.set_j1939_source_address_filter(address)
+            } else {
+                builder
+            };
+
+            builder.build()
         };
+
+        assert!(config.ecu_mode() == 0x15);
 
         let (_, (pwm_high1, pwm_low1, pwm_high2, pwm_low2)) = ctx
             .device
@@ -251,18 +323,20 @@ mod app {
 
         // TOOD: Move to vecraft module
         {
-            // TODO: Read all from EEPROM
             // TODO: Make an identity number based on debug and firmware version + debug/release
             let name = NameBuilder::default()
-                .identity_number(0x1)
-                .manufacturer_code(crate::J1939_NAME_MANUFACTURER_CODE)
-                .function_instance(crate::J1939_NAME_FUNCTION_INSTANCE)
-                .ecu_instance(crate::J1939_NAME_ECU_INSTANCE)
-                .function(crate::J1939_NAME_FUNCTION)
-                .vehicle_system(crate::J1939_NAME_VEHICLE_SYSTEM)
+                .identity_number(config.serial_number().1)
+                .manufacturer_code(config.j1939_name().manufacturer_code)
+                .function_instance(config.j1939_name().function_instance)
+                .ecu_instance(config.j1939_name().ecu_instance)
+                .function(config.j1939_name().function)
+                .vehicle_system(config.j1939_name().vehicle_system)
+                .vehicle_system_instance(config.j1939_name().vehicle_system_instance)
+                .industry_group(config.j1939_name().industry_group)
+                .arbitrary_address(config.j1939_name().arbitrary_address)
                 .build();
 
-            canbus1.send(protocol::address_claimed(crate::J1939_ADDRESS, name));
+            canbus1.send(protocol::address_claimed(config.j1939_address, name));
         }
 
         // TOOD: Move to vecraft module
@@ -277,7 +351,7 @@ mod app {
             writeln!(console).ok();
             writeln!(console, "    Firmware : {}", crate::PKG_NAME).ok();
             writeln!(console, "    Version  : {}", crate::PKG_VERSION).ok();
-            writeln!(console, "    Address  : 0x{:X?}", crate::J1939_ADDRESS).ok();
+            writeln!(console, "    Address  : 0x{:X?}", config.j1939_address).ok();
             writeln!(console).ok();
             writeln!(console, "  Laixer Equipment B.V.").ok();
             writeln!(console, "   Copyright (C) 2024").ok();
@@ -290,15 +364,13 @@ mod app {
                 console,
                 canbus1,
                 gate_lock,
+                config,
             },
             LocalResources {
-                led: vecraft::RGBLed::new(
-                    gpiob.pb13.into_push_pull_output(),
-                    gpiob.pb14.into_push_pull_output(),
-                    gpiob.pb12.into_push_pull_output(),
-                ),
+                led,
                 gate_control,
                 watchdog,
+                eeprom,
             },
             init::Monotonics(mono),
         )
@@ -311,8 +383,10 @@ mod app {
         commit_config::spawn_after(1.minutes().into()).ok();
     }
 
-    #[task(priority = 2, shared = [state, canbus1, gate_lock], local = [led, watchdog])]
+    #[task(priority = 2, shared = [config, state, canbus1, gate_lock], local = [led, watchdog, eeprom])]
     fn firmware_state(mut ctx: firmware_state::Context) {
+        let config = ctx.shared.config.lock(|config| *config);
+
         let is_bus_ok = ctx.shared.canbus1.lock(|canbus1| canbus1.is_bus_ok());
 
         let state = ctx.shared.state.lock(|state| {
@@ -326,12 +400,47 @@ mod app {
             state.state()
         });
 
+        if state == vecraft::state::State::Nominal {
+            if config.is_dirty {
+                // let mut cfg = vecraft::VecraftConfig::new(
+                //     0x10,
+                //     [0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8],
+                //     [0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8],
+                // );
+                // cfg.uart_selected = 0x2;
+                // cfg.uart_baudrate = 115_200;
+                // cfg.canbus1_bitrate = 250_000;
+                // cfg.canbus1_termination = false;
+                // cfg.j1939_address = 0x4A;
+                // cfg.j1939_source_address = 0xFF;
+
+                // #[rustfmt::skip]
+                // ctx.local.eeprom.write_page(vecraft::VECRAFT_CONFIG_PAGE, &cfg.to_bytes());
+
+                #[rustfmt::skip]
+                ctx.shared.config.lock(|config| config.is_dirty = false);
+                vecraft::sys_reboot();
+            }
+            if config.is_factory_reset {
+                let mut vecraft_config_default = [0; 64];
+
+                #[rustfmt::skip]
+                ctx.local.eeprom.read_page(vecraft::VECRAFT_CONFIG_PAGE + 250, &mut vecraft_config_default);
+                #[rustfmt::skip]
+                ctx.local.eeprom.write_page(vecraft::VECRAFT_CONFIG_PAGE, &vecraft_config_default);
+
+                #[rustfmt::skip]
+                ctx.shared.config.lock(|config| config.is_factory_reset = false);
+                vecraft::sys_reboot();
+            }
+        }
+
         ctx.local
             .led
             .set_color(&state.as_led(), &vecraft::LedState::On);
 
         let id = IdBuilder::from_pgn(PGN::Other(65_288))
-            .sa(crate::J1939_ADDRESS)
+            .sa(config.j1939_address)
             .build();
 
         let uptime = monotonics::now().duration_since_epoch();
@@ -356,7 +465,7 @@ mod app {
 
         ctx.local.watchdog.feed();
 
-        firmware_state::spawn_after(50.millis().into()).ok();
+        firmware_state::spawn_after(50.millis().into()).expect("Fail to schedule");
     }
 
     #[task(binds = WWDG1, shared = [console, gate_lock])]
@@ -386,8 +495,10 @@ mod app {
         }
     }
 
-    #[task(binds = FDCAN1_IT0, priority = 2, shared = [canbus1, state, console, gate_lock], local = [gate_control])]
+    #[task(binds = FDCAN1_IT0, priority = 2, shared = [config, canbus1, state, console, gate_lock], local = [gate_control])]
     fn can1_event(mut ctx: can1_event::Context) {
+        let config = ctx.shared.config.lock(|config| *config);
+
         let is_bus_error = ctx.shared.canbus1.lock(|canbus1| canbus1.is_bus_error());
 
         if is_bus_error {
@@ -412,7 +523,7 @@ mod app {
                     match pgn {
                         PGN::SoftwareIdentification => {
                             let id = IdBuilder::from_pgn(PGN::SoftwareIdentification)
-                                .sa(crate::J1939_ADDRESS)
+                                .sa(config.j1939_address)
                                 .build();
 
                             let frame = FrameBuilder::new(id)
@@ -442,12 +553,12 @@ mod app {
                                 .build();
 
                             ctx.shared.canbus1.lock(|canbus1| {
-                                canbus1.send(protocol::address_claimed(crate::J1939_ADDRESS, name))
+                                canbus1.send(protocol::address_claimed(config.j1939_address, name))
                             });
                         }
                         _ => {
                             ctx.shared.canbus1.lock(|canbus1| {
-                                canbus1.send(protocol::acknowledgement(crate::J1939_ADDRESS, pgn))
+                                canbus1.send(protocol::acknowledgement(config.j1939_address, pgn))
                             });
                         }
                     }
