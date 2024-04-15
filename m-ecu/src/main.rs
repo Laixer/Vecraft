@@ -212,7 +212,7 @@ mod app {
             .FDCAN
             .kernel_clk_mux(rcc::rec::FdcanClkSel::Pll1Q);
 
-        assert!(config.canbus1_bitrate == 250_000);
+        assert!(config.canbus1_bitrate == 250_000 || config.canbus1_bitrate == 500_000);
 
         let mut canbus1 = {
             let rx = gpiod.pd0.into_alternate().speed(gpio::Speed::VeryHigh);
@@ -221,7 +221,10 @@ mod app {
 
             let builder =
                 vecraft::can::CanBuilder::new(ctx.device.FDCAN1.fdcan(tx, rx, fdcan_prec), term)
-                    .set_bit_timing(vecraft::can::bit_timing_from_baudrate(config.canbus1_bitrate).unwrap_or(vecraft::can::BITRATE_250K))
+                    .set_bit_timing(
+                        vecraft::can::bit_timing_from_baudrate(config.canbus1_bitrate)
+                            .unwrap_or(vecraft::can::BITRATE_250K),
+                    )
                     .set_j1939_broadcast_filter()
                     .set_j1939_destination_address_filter(config.j1939_address)
                     .set_termination(config.canbus1_termination);
