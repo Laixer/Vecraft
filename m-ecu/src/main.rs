@@ -222,9 +222,8 @@ mod app {
             let term = gpiod.pd3.into_push_pull_output();
 
             let builder =
-            vecraft::can::CanBuilder::new(ctx.device.FDCAN1.fdcan(tx, rx, fdcan_prec), term)
-                .set_bit_timing(vecraft::can::BITRATE_250K)
-                // .set_bit_timing(vecraft::can::bit_timing_from_baudrate(config.canbus1_bitrate).unwrap_or(vecraft::can::BITRATE_250K))
+                vecraft::can::CanBuilder::new(ctx.device.FDCAN1.fdcan(tx, rx, fdcan_prec), term)
+                    .set_bit_timing(vecraft::can::bit_timing_from_baudrate(config.canbus1_bitrate).unwrap_or(vecraft::can::BITRATE_250K))
                     .set_j1939_broadcast_filter()
                     .set_j1939_destination_address_filter(config.j1939_address)
                     .set_termination(config.canbus1_termination);
