@@ -28,17 +28,6 @@ const FDCAN_CLOCK: Hertz = Hertz::MHz(32);
 /// USART peripheral clock.
 const USART_CLOCK: Hertz = Hertz::MHz(48);
 
-/// J1939 name manufacturer code.
-const J1939_NAME_MANUFACTURER_CODE: u16 = 0x717;
-/// J1939 name function instance.
-const J1939_NAME_FUNCTION_INSTANCE: u8 = 1;
-/// J1939 name ECU instance.
-const J1939_NAME_ECU_INSTANCE: u8 = 1;
-/// J1939 name function.
-const J1939_NAME_FUNCTION: u8 = 0x3A;
-/// J1939 name vehicle system.
-const J1939_NAME_VEHICLE_SYSTEM: u8 = 9;
-
 #[rtic::app(device = stm32h7xx_hal::stm32, peripherals = true, dispatchers = [USART1, USART2])]
 mod app {
     use stm32h7xx_hal::gpio::{self};
@@ -102,8 +91,6 @@ mod app {
         ccdr.peripheral
             .kernel_usart234578_clk_mux(rcc::rec::Usart234578ClkSel::Pll3Q);
 
-        // TODO: Call EEPROM, read Vecraft configuration, if not available, set default configuration
-
         let mut watchdog = SystemWindowWatchdog::new(ctx.device.WWDG, &ccdr);
 
         // GPIO
@@ -131,6 +118,7 @@ mod app {
 
         let mut eeprom = vecraft::eeprom::Eeprom::new(i2c);
 
+        // TODO: Remove this block
         // {
         //     let mut cfg = vecraft::VecraftConfig::new(
         //         0x15,
@@ -147,6 +135,7 @@ mod app {
         //     eeprom.write_page(vecraft::VECRAFT_CONFIG_PAGE, &cfg.to_bytes());
         // }
 
+        // TODO: Replace array size with a constant
         let mut vecraft_config = [0; 64];
         eeprom.read_page(vecraft::VECRAFT_CONFIG_PAGE, &mut vecraft_config);
 
@@ -157,8 +146,10 @@ mod app {
                     vecraft::VECRAFT_CONFIG_PAGE + 250,
                     &mut vecraft_config_default,
                 );
+
                 vecraft::VecraftConfig::try_from(&vecraft_config_default[..])
                     .expect("No factory config");
+
                 eeprom.write_page(vecraft::VECRAFT_CONFIG_PAGE, &vecraft_config_default);
                 vecraft::sys_reboot();
                 unreachable!();
@@ -173,7 +164,7 @@ mod app {
                 .USART2
                 .serial(
                     (gpiod.pd5.into_alternate(), gpiod.pd6.into_alternate()),
-                    115200.bps(), // TODO: Make this configurable
+                    config.uart_baudrate.bps(),
                     ccdr.peripheral.USART2,
                     &ccdr.clocks,
                 )
@@ -185,8 +176,8 @@ mod app {
             .FDCAN
             .kernel_clk_mux(rcc::rec::FdcanClkSel::Pll1Q);
 
-        // TODO: From config: Id, bit timing, default filter, termination
-        // TODO: Add filter in 3 steps: Broadcast PGN, DA and optional SA
+        assert!(config.canbus1_bitrate == 250_000 || config.canbus1_bitrate == 500_000);
+
         let mut canbus1 = {
             let rx = gpiod.pd0.into_alternate().speed(gpio::Speed::VeryHigh);
             let tx = gpiod.pd1.into_alternate().speed(gpio::Speed::VeryHigh);
@@ -210,6 +201,10 @@ mod app {
 
             builder.build()
         };
+
+        //
+        // From this point on, setup hardware and peripherals for this specific application
+        //
 
         assert!(config.ecu_mode() == 0x15);
 
@@ -311,6 +306,10 @@ mod app {
         };
         gate_control.reset();
 
+        //
+        // End of application specific setup. The application is ready to run.
+        //
+
         firmware_state::spawn().ok();
         // commit_config::spawn_after(1.minutes().into()).ok();
 
@@ -319,7 +318,7 @@ mod app {
 
         // TOOD: Move to vecraft module
         {
-            // TODO: Make an identity number based on debug and firmware version + debug/release
+            // TODO: Make an identity number based on debug and firmware version
             let name = NameBuilder::default()
                 .identity_number(config.serial_number().1)
                 .manufacturer_code(config.j1939_name().manufacturer_code)
@@ -372,13 +371,6 @@ mod app {
         )
     }
 
-    #[task(priority = 1, shared = [state, canbus1, gate_lock])]
-    fn commit_config(_: commit_config::Context) {
-        // TODO: Write all to EEPROM
-
-        commit_config::spawn_after(1.minutes().into()).ok();
-    }
-
     #[task(priority = 2, shared = [config, state, canbus1, gate_lock], local = [led, watchdog, eeprom])]
     fn firmware_state(mut ctx: firmware_state::Context) {
         let config = ctx.shared.config.lock(|config| *config);
@@ -397,9 +389,10 @@ mod app {
         });
 
         if state == vecraft::state::State::Nominal {
+            // TODO: Schedule via idle task
             if config.is_dirty {
                 // let mut cfg = vecraft::VecraftConfig::new(
-                //     0x10,
+                //     0x15,
                 //     [0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8],
                 //     [0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8],
                 // );
@@ -529,23 +522,35 @@ mod app {
                                     crate::PKG_VERSION_MINOR.parse::<u8>().unwrap(),
                                     crate::PKG_VERSION_PATCH.parse::<u8>().unwrap(),
                                     FIELD_DELIMITER,
-                                    PDU_NOT_AVAILABLE,
-                                    PDU_NOT_AVAILABLE,
-                                    PDU_NOT_AVAILABLE,
                                 ])
                                 .build();
+
+                            ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
+                        }
+                        PGN::ComponentIdentification => {
+                            let id = IdBuilder::from_pgn(PGN::ComponentIdentification)
+                                .sa(config.j1939_address)
+                                .build();
+
+                            // TODO: Get the serial number from the EEPROM
+                            let frame = FrameBuilder::new(id).build();
 
                             ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
                         }
                         PGN::AddressClaimed => {
                             // TODO: Make an identity number based on debug and firmware version
                             let name = NameBuilder::default()
-                                .identity_number(0x1)
-                                .manufacturer_code(crate::J1939_NAME_MANUFACTURER_CODE)
-                                .function_instance(crate::J1939_NAME_FUNCTION_INSTANCE)
-                                .ecu_instance(crate::J1939_NAME_ECU_INSTANCE)
-                                .function(crate::J1939_NAME_FUNCTION)
-                                .vehicle_system(crate::J1939_NAME_VEHICLE_SYSTEM)
+                                .identity_number(config.serial_number().1)
+                                .manufacturer_code(config.j1939_name().manufacturer_code)
+                                .function_instance(config.j1939_name().function_instance)
+                                .ecu_instance(config.j1939_name().ecu_instance)
+                                .function(config.j1939_name().function)
+                                .vehicle_system(config.j1939_name().vehicle_system)
+                                .vehicle_system_instance(
+                                    config.j1939_name().vehicle_system_instance,
+                                )
+                                .industry_group(config.j1939_name().industry_group)
+                                .arbitrary_address(config.j1939_name().arbitrary_address)
                                 .build();
 
                             ctx.shared.canbus1.lock(|canbus1| {
@@ -560,7 +565,7 @@ mod app {
                     }
                 }
                 PGN::ProprietarilyConfigurableMessage1 => {
-                    // TODO: Forgo the payload header.
+                    // TODO: Remove the header
                     if frame.pdu()[0] == b'Z' && frame.pdu()[1] == b'C' {
                         if frame.pdu()[2] & 0b1 == 1 {
                             ctx.shared.state.lock(|state| state.set_ident(true));
@@ -571,6 +576,13 @@ mod app {
                         if frame.pdu()[3] == 0x69 {
                             vecraft::sys_reboot();
                         }
+                    }
+                }
+                PGN::ProprietarilyConfigurableMessage2 => {
+                    if frame.pdu() == [0x01; 8] {
+                        ctx.shared
+                            .config
+                            .lock(|config| config.is_factory_reset = true);
                     }
                 }
                 PGN::ProprietarilyConfigurableMessage3 => {

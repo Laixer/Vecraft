@@ -28,17 +28,6 @@ const FDCAN_CLOCK: Hertz = Hertz::MHz(32);
 /// USART peripheral clock.
 const USART_CLOCK: Hertz = Hertz::MHz(48);
 
-// /// J1939 name manufacturer code.
-// const J1939_NAME_MANUFACTURER_CODE: u16 = 0x717;
-// /// J1939 name function instance.
-// const J1939_NAME_FUNCTION_INSTANCE: u8 = 1;
-// /// J1939 name ECU instance.
-// const J1939_NAME_ECU_INSTANCE: u8 = 1;
-// /// J1939 name function.
-// const J1939_NAME_FUNCTION: u8 = 0x11;
-// /// J1939 name vehicle system.
-// const J1939_NAME_VEHICLE_SYSTEM: u8 = 9;
-
 /// Engine RPM minimum.
 // const ENGINE_RPM_MIN: u16 = 700;
 // /// Engine RPM maximum.
@@ -154,6 +143,7 @@ mod app {
 
         let mut eeprom = vecraft::eeprom::Eeprom::new(i2c);
 
+        // TODO: Remove this block
         // {
         //     let mut cfg = vecraft::VecraftConfig::new(
         //         0x10,
@@ -170,6 +160,7 @@ mod app {
         //     eeprom.write_page(vecraft::VECRAFT_CONFIG_PAGE, &cfg.to_bytes());
         // }
 
+        // TODO: Replace array size with a constant
         let mut vecraft_config = [0; 64];
         eeprom.read_page(vecraft::VECRAFT_CONFIG_PAGE, &mut vecraft_config);
 
@@ -180,8 +171,10 @@ mod app {
                     vecraft::VECRAFT_CONFIG_PAGE + 250,
                     &mut vecraft_config_default,
                 );
+
                 vecraft::VecraftConfig::try_from(&vecraft_config_default[..])
                     .expect("No factory config");
+
                 eeprom.write_page(vecraft::VECRAFT_CONFIG_PAGE, &vecraft_config_default);
                 vecraft::sys_reboot();
                 unreachable!();
@@ -234,6 +227,10 @@ mod app {
             builder.build()
         };
 
+        //
+        // From this point on, setup hardware and peripherals for this specific application
+        //
+
         assert!(config.ecu_mode() == 0x10);
 
         let mut power2_enable = gpioe.pe2.into_push_pull_output();
@@ -269,11 +266,17 @@ mod app {
 
         power2_enable.set_high();
 
+        //
+        // End of application specific setup. The application is ready to run.
+        //
+
         firmware_state::spawn().ok();
         // firmware_test::spawn().ok();
 
         watchdog.start(75.millis());
+        // watchdog.listen(EarlyWakeup); // TODO: Always listen for early wakeup
 
+        // TOOD: Move to vecraft module
         {
             // TODO: Make an identity number based on debug and firmware version
             let name = NameBuilder::default()
@@ -291,6 +294,7 @@ mod app {
             canbus1.send(protocol::address_claimed(config.j1939_address, name));
         }
 
+        // TOOD: Move to vecraft module
         {
             use core::fmt::Write;
 
@@ -347,6 +351,7 @@ mod app {
         });
 
         if state == vecraft::state::State::Nominal {
+            // TODO: Schedule via idle task
             if config.is_dirty {
                 // let mut cfg = vecraft::VecraftConfig::new(
                 //     0x10,
@@ -508,9 +513,9 @@ mod app {
                 PGN::ProprietarilyConfigurableMessage1 => {
                     // TODO: Remove the header
                     if frame.pdu()[0] == b'Z' && frame.pdu()[1] == b'C' {
-                        if frame.pdu()[2] & 0b00000001 == 1 {
+                        if frame.pdu()[2] & 0b1 == 1 {
                             ctx.shared.state.lock(|state| state.set_ident(true));
-                        } else if frame.pdu()[2] & 0b00000001 == 0 {
+                        } else if frame.pdu()[2] & 0b1 == 0 {
                             ctx.shared.state.lock(|state| state.set_ident(false));
                         }
 
