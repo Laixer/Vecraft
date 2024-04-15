@@ -186,7 +186,8 @@ mod app {
                     vecraft::VECRAFT_CONFIG_PAGE + 250,
                     &mut vecraft_config_default,
                 );
-                vecraft::VecraftConfig::try_from(&vecraft_config_default[..]).expect("No factory config");
+                vecraft::VecraftConfig::try_from(&vecraft_config_default[..])
+                    .expect("No factory config");
                 eeprom.write_page(vecraft::VECRAFT_CONFIG_PAGE, &vecraft_config_default);
                 vecraft::sys_reboot();
                 unreachable!();
@@ -220,16 +221,21 @@ mod app {
             let tx = gpiod.pd1.into_alternate().speed(gpio::Speed::VeryHigh);
             let term = gpiod.pd3.into_push_pull_output();
 
-            // TODO: Add filter
+            let builder =
             vecraft::can::CanBuilder::new(ctx.device.FDCAN1.fdcan(tx, rx, fdcan_prec), term)
                 .set_bit_timing(vecraft::can::BITRATE_250K)
                 // .set_bit_timing(vecraft::can::bit_timing_from_baudrate(config.canbus1_bitrate).unwrap_or(vecraft::can::BITRATE_250K))
-                .set_default_filter(config.j1939_address)
-                // .set_j1939_broadcast_filter()
-                // .set_j1939_destination_address_filter(config.j1939_address())
-                // .set_j1939_destination_address_filter(config.j1939_source_address.unwrap_or(0))
-                .set_termination(config.canbus1_termination)
-                .build()
+                    .set_j1939_broadcast_filter()
+                    .set_j1939_destination_address_filter(config.j1939_address)
+                    .set_termination(config.canbus1_termination);
+
+            let builder = if let Some(address) = config.j1939_source_address {
+                builder.set_j1939_source_address_filter(address)
+            } else {
+                builder
+            };
+
+            builder.build()
         };
 
         assert!(config.ecu_mode() == 0x10);

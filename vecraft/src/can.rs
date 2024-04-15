@@ -84,10 +84,10 @@ impl<I: fdcan::Instance, P: stm32h7xx_hal::hal::digital::v2::OutputPin> CanBuild
         fdcan.enable_interrupt(Interrupt::ErrPassive);
         fdcan.enable_interrupt(Interrupt::BusOff);
 
-        // fdcan.set_extended_filter(ExtendedFilterSlot::_0, ExtendedFilter::disable());
-        // fdcan.set_extended_filter(ExtendedFilterSlot::_1, ExtendedFilter::disable());
-        // fdcan.set_extended_filter(ExtendedFilterSlot::_2, ExtendedFilter::disable());
-        // fdcan.set_extended_filter(ExtendedFilterSlot::_3, ExtendedFilter::reject_all());
+        fdcan.set_extended_filter(ExtendedFilterSlot::_0, ExtendedFilter::disable());
+        fdcan.set_extended_filter(ExtendedFilterSlot::_1, ExtendedFilter::disable());
+        fdcan.set_extended_filter(ExtendedFilterSlot::_2, ExtendedFilter::disable());
+        fdcan.set_extended_filter(ExtendedFilterSlot::_3, ExtendedFilter::reject_all());
 
         Self { fdcan, term }
     }
@@ -172,7 +172,7 @@ impl<I: fdcan::Instance, P: stm32h7xx_hal::hal::digital::v2::OutputPin> CanBuild
 
     pub fn set_j1939_source_address_filter(mut self, address: u8) -> Self {
         self.fdcan.set_extended_filter(
-            ExtendedFilterSlot::_1,
+            ExtendedFilterSlot::_2,
             ExtendedFilter {
                 filter: FilterType::BitMask {
                     filter: (address as u32),

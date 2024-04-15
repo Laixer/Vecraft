@@ -77,11 +77,13 @@ impl VecraftConfig {
         bytes[44] = self.canbus1_termination as u8;
         bytes[48] = self.j1939_address;
         bytes[49..57].copy_from_slice(&self.j1939_name);
+        bytes[57] = self.j1939_source_address.unwrap_or(0xFF);
 
         bytes
     }
 }
 
+#[derive(Copy, Clone, Debug)]
 pub enum ConfigError {
     InvalidHeader,
     InvalidVersion,
@@ -108,7 +110,10 @@ impl TryFrom<&[u8]> for VecraftConfig {
             canbus1_termination: value[44] != 0,
             j1939_address: value[48],
             j1939_name: value[49..57].try_into().unwrap_or([0; 8]),
-            j1939_source_address: None,
+            j1939_source_address: match value[57] {
+                0xFF => None,
+                _ => Some(value[57]),
+            },
         })
     }
 }
