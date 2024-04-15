@@ -113,10 +113,11 @@ mod app {
         let gpiod = ctx.device.GPIOD.split(ccdr.peripheral.GPIOD);
         // let gpioe = ctx.device.GPIOE.split(ccdr.peripheral.GPIOE);
 
-        let mut led = vecraft::RGBLed::new(
+        let led = vecraft::RGBLed::new_with_color(
             gpiob.pb13.into_push_pull_output(),
             gpiob.pb14.into_push_pull_output(),
             gpiob.pb12.into_push_pull_output(),
+            &vecraft::state::State::ConfigurationError.as_led(),
         );
 
         // Configure the SCL and the SDA pin for our I2C bus
@@ -129,11 +130,6 @@ mod app {
             .i2c((scl, sda), 400.kHz(), ccdr.peripheral.I2C1, &ccdr.clocks);
 
         let mut eeprom = vecraft::eeprom::Eeprom::new(i2c);
-
-        led.set_color(
-            &vecraft::state::State::ConfigurationError.as_led(),
-            &vecraft::LedState::On,
-        );
 
         // {
         //     let mut cfg = vecraft::VecraftConfig::new(

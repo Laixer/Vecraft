@@ -53,6 +53,17 @@ impl RGBLed {
         led_self
     }
 
+    pub fn new_with_color(
+        green: PinLedGreen,
+        blue: PinLedBlue,
+        red: PinLedRed,
+        color: &Color,
+    ) -> Self {
+        let mut led_self = Self { green, blue, red };
+        led_self.set_color(color, &LedState::On);
+        led_self
+    }
+
     pub fn set_color(&mut self, color: &Color, state: &LedState) {
         if color.red {
             self.set_red(state)
