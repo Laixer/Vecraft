@@ -414,7 +414,7 @@ mod app {
 
         ctx.local.watchdog.feed();
 
-        firmware_state::spawn_after(50.millis().into()).unwrap();
+        firmware_state::spawn_after(50.millis().into()).expect("Fail to schedule");
     }
 
     // #[task(priority = 2, shared = [state, canbus1], local = [toggle])]
