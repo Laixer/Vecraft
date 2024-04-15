@@ -186,6 +186,7 @@ mod app {
                     vecraft::VECRAFT_CONFIG_PAGE + 250,
                     &mut vecraft_config_default,
                 );
+                vecraft::VecraftConfig::try_from(&vecraft_config_default[..]).expect("No factory config");
                 eeprom.write_page(vecraft::VECRAFT_CONFIG_PAGE, &vecraft_config_default);
                 vecraft::sys_reboot();
                 unreachable!();
