@@ -207,7 +207,7 @@ mod app {
         // From this point on, setup hardware and peripherals for this specific application
         //
 
-        assert!(config.ecu_mode() == 0x15);
+        assert!(config.ecu_mode().try_into() == Ok(vecraft::EcuApplication::HydraulicControl));
 
         let (_, (pwm_high1, pwm_low1, pwm_high2, pwm_low2)) = ctx
             .device
@@ -364,7 +364,6 @@ mod app {
     #[task(priority = 2, shared = [config, state, canbus1, gate_lock, last_recv_time], local = [led, watchdog, eeprom])]
     fn firmware_state(mut ctx: firmware_state::Context) {
         let config = ctx.shared.config.lock(|config| *config);
-
         let is_bus_ok = ctx.shared.canbus1.lock(|canbus1| canbus1.is_bus_ok());
 
         let state = ctx.shared.state.lock(|state| {
@@ -438,8 +437,8 @@ mod app {
             .sa(config.j1939_address)
             .build();
 
-        let uptime = monotonics::now().duration_since_epoch();
         let is_locked = ctx.shared.gate_lock.lock(|gate_lock| gate_lock.is_locked());
+        let uptime = monotonics::now().duration_since_epoch();
         let timestamp = uptime.to_secs() as u32;
 
         let frame = FrameBuilder::new(id)
