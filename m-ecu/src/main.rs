@@ -353,20 +353,10 @@ mod app {
         if state == vecraft::state::State::Nominal {
             // TODO: Schedule via idle task
             if config.is_dirty {
-                // let mut cfg = vecraft::VecraftConfig::new(
-                //     0x10,
-                //     [0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8],
-                //     [0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8],
-                // );
-                // cfg.uart_selected = 0x2;
-                // cfg.uart_baudrate = 115_200;
-                // cfg.canbus1_bitrate = 250_000;
-                // cfg.canbus1_termination = false;
-                // cfg.j1939_address = 0x12;
-                // cfg.j1939_source_address = 0xFF;
+                let config = ctx.shared.config.lock(|config| *config);
 
-                // #[rustfmt::skip]
-                // ctx.local.eeprom.write_page(vecraft::VECRAFT_CONFIG_PAGE, &cfg.to_bytes());
+                #[rustfmt::skip]
+                ctx.local.eeprom.write_page(vecraft::VECRAFT_CONFIG_PAGE, &config.to_bytes());
 
                 #[rustfmt::skip]
                 ctx.shared.config.lock(|config| config.is_dirty = false);
@@ -377,6 +367,10 @@ mod app {
 
                 #[rustfmt::skip]
                 ctx.local.eeprom.read_page(vecraft::VECRAFT_CONFIG_PAGE + 250, &mut vecraft_config_default);
+
+                vecraft::VecraftConfig::try_from(&vecraft_config_default[..])
+                    .expect("No factory config");
+
                 #[rustfmt::skip]
                 ctx.local.eeprom.write_page(vecraft::VECRAFT_CONFIG_PAGE, &vecraft_config_default);
 
