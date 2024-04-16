@@ -55,6 +55,7 @@ mod app {
         >,
         gate_lock: vecraft::lsgc::GateLock,
         config: vecraft::VecraftConfig,
+        last_recv_time: Option<u64>,
     }
 
     #[local]
@@ -360,6 +361,7 @@ mod app {
                 canbus1,
                 gate_lock,
                 config,
+                last_recv_time: None,
             },
             LocalResources {
                 led,
@@ -371,7 +373,7 @@ mod app {
         )
     }
 
-    #[task(priority = 2, shared = [config, state, canbus1, gate_lock], local = [led, watchdog, eeprom])]
+    #[task(priority = 2, shared = [config, state, canbus1, gate_lock, last_recv_time], local = [led, watchdog, eeprom])]
     fn firmware_state(mut ctx: firmware_state::Context) {
         let config = ctx.shared.config.lock(|config| *config);
 
@@ -387,6 +389,18 @@ mod app {
 
             state.state()
         });
+
+        let is_locked = ctx.shared.gate_lock.lock(|gate_lock| gate_lock.is_locked());
+        let recv_within_time = ctx.shared.last_recv_time.lock(|last_recv_time| {
+            last_recv_time.map_or(false, |time| {
+                // If last received time + 1.5s is greater than current time, we received a frame within 1.5s of each other
+                time + 1_500 > monotonics::now().duration_since_epoch().to_millis()
+            })
+        });
+
+        if !recv_within_time && !is_locked {
+            ctx.shared.gate_lock.lock(|gate_lock| gate_lock.lock());
+        }
 
         if state == vecraft::state::State::Nominal {
             // TODO: Schedule via idle task
@@ -484,7 +498,7 @@ mod app {
         }
     }
 
-    #[task(binds = FDCAN1_IT0, priority = 2, shared = [config, canbus1, state, console, gate_lock], local = [gate_control])]
+    #[task(binds = FDCAN1_IT0, priority = 2, shared = [config, canbus1, state, console, gate_lock, last_recv_time], local = [gate_control])]
     fn can1_event(mut ctx: can1_event::Context) {
         let config = ctx.shared.config.lock(|config| *config);
 
@@ -602,6 +616,10 @@ mod app {
                             if state == vecraft::state::State::Nominal {
                                 ctx.shared.gate_lock.lock(|gate_lock| gate_lock.unlock());
                                 ctx.local.gate_control.reset();
+                                ctx.shared.last_recv_time.lock(|last_recv_time| {
+                                    *last_recv_time =
+                                        Some(monotonics::now().duration_since_epoch().to_millis())
+                                });
 
                                 #[cfg(debug_assertions)]
                                 ctx.shared.console.lock(|console| {
@@ -618,6 +636,9 @@ mod app {
                     }
                 }
                 PGN::Other(40_960) => {
+                    ctx.shared.last_recv_time.lock(|last_recv_time| {
+                        *last_recv_time = Some(monotonics::now().duration_since_epoch().to_millis())
+                    });
                     if frame.pdu()[0..2] != [PDU_NOT_AVAILABLE, PDU_NOT_AVAILABLE] {
                         let gate_value = i16::from_le_bytes([frame.pdu()[0], frame.pdu()[1]]);
 
@@ -652,6 +673,9 @@ mod app {
                     }
                 }
                 PGN::Other(41_216) => {
+                    ctx.shared.last_recv_time.lock(|last_recv_time| {
+                        *last_recv_time = Some(monotonics::now().duration_since_epoch().to_millis())
+                    });
                     if frame.pdu()[0..2] != [PDU_NOT_AVAILABLE, PDU_NOT_AVAILABLE] {
                         let gate_value = i16::from_le_bytes([frame.pdu()[0], frame.pdu()[1]]);
 
