@@ -37,7 +37,7 @@ mod app {
 
     use vecraft::fdcan;
     use vecraft::j1939::{
-        protocol, FrameBuilder, IdBuilder, NameBuilder, FIELD_DELIMITER, PDU_NOT_AVAILABLE, PGN,
+        protocol, FrameBuilder, IdBuilder, FIELD_DELIMITER, PDU_NOT_AVAILABLE, PGN,
     };
     use vecraft::Systick;
 
@@ -318,22 +318,10 @@ mod app {
         watchdog.listen(EarlyWakeup);
 
         // TOOD: Move to vecraft module
-        {
-            // TODO: Make an identity number based on debug and firmware version
-            let name = NameBuilder::default()
-                .identity_number(config.serial_number().1)
-                .manufacturer_code(config.j1939_name().manufacturer_code)
-                .function_instance(config.j1939_name().function_instance)
-                .ecu_instance(config.j1939_name().ecu_instance)
-                .function(config.j1939_name().function)
-                .vehicle_system(config.j1939_name().vehicle_system)
-                .vehicle_system_instance(config.j1939_name().vehicle_system_instance)
-                .industry_group(config.j1939_name().industry_group)
-                .arbitrary_address(config.j1939_name().arbitrary_address)
-                .build();
-
-            canbus1.send(protocol::address_claimed(config.j1939_address, name));
-        }
+        canbus1.send(protocol::address_claimed(
+            config.j1939_address,
+            config.j1939_name(),
+        ));
 
         // TOOD: Move to vecraft module
         {
@@ -390,6 +378,10 @@ mod app {
             state.state()
         });
 
+        //
+        // Act on state changes
+        //
+
         const GATE_CONTROL_TIMEOUT: u64 = 1_500;
         let timestamp = monotonics::now().duration_since_epoch().to_millis();
         let recv_within_time = ctx.shared.last_recv_time.lock(|last_recv_time| {
@@ -434,6 +426,10 @@ mod app {
             }
         }
 
+        //
+        // Report state via LED and CAN
+        //
+
         ctx.local
             .led
             .set_color(&state.as_led(), &vecraft::LedState::On);
@@ -445,12 +441,11 @@ mod app {
         let uptime = monotonics::now().duration_since_epoch();
         let is_locked = ctx.shared.gate_lock.lock(|gate_lock| gate_lock.is_locked());
         let timestamp = uptime.to_secs() as u32;
-        let state_subclass = 0;
 
         let frame = FrameBuilder::new(id)
             .copy_from_slice(&[
                 state.as_byte(),
-                state_subclass,
+                PDU_NOT_AVAILABLE,
                 is_locked as u8,
                 PDU_NOT_AVAILABLE,
                 timestamp.to_le_bytes()[0],
@@ -461,6 +456,10 @@ mod app {
             .build();
 
         ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
+
+        //
+        // Feed the watchdog and schedule the next state check
+        //
 
         ctx.local.watchdog.feed();
 
@@ -548,23 +547,11 @@ mod app {
                             ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
                         }
                         PGN::AddressClaimed => {
-                            // TODO: Make an identity number based on debug and firmware version
-                            let name = NameBuilder::default()
-                                .identity_number(config.serial_number().1)
-                                .manufacturer_code(config.j1939_name().manufacturer_code)
-                                .function_instance(config.j1939_name().function_instance)
-                                .ecu_instance(config.j1939_name().ecu_instance)
-                                .function(config.j1939_name().function)
-                                .vehicle_system(config.j1939_name().vehicle_system)
-                                .vehicle_system_instance(
-                                    config.j1939_name().vehicle_system_instance,
-                                )
-                                .industry_group(config.j1939_name().industry_group)
-                                .arbitrary_address(config.j1939_name().arbitrary_address)
-                                .build();
-
                             ctx.shared.canbus1.lock(|canbus1| {
-                                canbus1.send(protocol::address_claimed(config.j1939_address, name))
+                                canbus1.send(protocol::address_claimed(
+                                    config.j1939_address,
+                                    config.j1939_name(),
+                                ))
                             });
                         }
                         _ => {
