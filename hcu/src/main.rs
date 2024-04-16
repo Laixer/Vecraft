@@ -390,14 +390,16 @@ mod app {
             state.state()
         });
 
-        let is_locked = ctx.shared.gate_lock.lock(|gate_lock| gate_lock.is_locked());
+        const GATE_CONTROL_TIMEOUT: u64 = 1_500;
+        let timestamp = monotonics::now().duration_since_epoch().to_millis();
         let recv_within_time = ctx.shared.last_recv_time.lock(|last_recv_time| {
             last_recv_time.map_or(false, |time| {
                 // If last received time + 1.5s is greater than current time, we received a frame within 1.5s of each other
-                time + 1_500 > monotonics::now().duration_since_epoch().to_millis()
+                time + GATE_CONTROL_TIMEOUT > timestamp
             })
         });
 
+        let is_locked = ctx.shared.gate_lock.lock(|gate_lock| gate_lock.is_locked());
         if !recv_within_time && !is_locked {
             ctx.shared.gate_lock.lock(|gate_lock| gate_lock.lock());
         }
@@ -576,6 +578,7 @@ mod app {
                     // TODO: Remove the header
                     if frame.pdu()[0] == b'Z' && frame.pdu()[1] == b'C' {
                         if frame.pdu()[2] & 0b1 == 1 {
+                            ctx.shared.gate_lock.lock(|gate_lock| gate_lock.lock());
                             ctx.shared.state.lock(|state| state.set_ident(true));
                         } else if frame.pdu()[2] & 0b1 == 0 {
                             ctx.shared.state.lock(|state| state.set_ident(false));
@@ -597,7 +600,6 @@ mod app {
                     if frame.pdu()[0] == b'Z' && frame.pdu()[1] == b'C' {
                         if frame.pdu()[3] & 0b11 == 0 {
                             ctx.shared.gate_lock.lock(|gate_lock| gate_lock.lock());
-                            ctx.local.gate_control.reset();
 
                             #[cfg(debug_assertions)]
                             ctx.shared.console.lock(|console| {
@@ -610,10 +612,12 @@ mod app {
                             if state == vecraft::state::State::Nominal {
                                 ctx.shared.gate_lock.lock(|gate_lock| gate_lock.unlock());
                                 ctx.local.gate_control.reset();
-                                ctx.shared.last_recv_time.lock(|last_recv_time| {
-                                    *last_recv_time =
-                                        Some(monotonics::now().duration_since_epoch().to_millis())
-                                });
+
+                                let timestamp =
+                                    monotonics::now().duration_since_epoch().to_millis();
+                                ctx.shared
+                                    .last_recv_time
+                                    .lock(|last_recv_time| *last_recv_time = Some(timestamp));
 
                                 #[cfg(debug_assertions)]
                                 ctx.shared.console.lock(|console| {
@@ -630,9 +634,11 @@ mod app {
                     }
                 }
                 PGN::Other(40_960) => {
-                    ctx.shared.last_recv_time.lock(|last_recv_time| {
-                        *last_recv_time = Some(monotonics::now().duration_since_epoch().to_millis())
-                    });
+                    let timestamp = monotonics::now().duration_since_epoch().to_millis();
+                    ctx.shared
+                        .last_recv_time
+                        .lock(|last_recv_time| *last_recv_time = Some(timestamp));
+
                     if frame.pdu()[0..2] != [PDU_NOT_AVAILABLE, PDU_NOT_AVAILABLE] {
                         let gate_value = i16::from_le_bytes([frame.pdu()[0], frame.pdu()[1]]);
 
@@ -667,9 +673,11 @@ mod app {
                     }
                 }
                 PGN::Other(41_216) => {
-                    ctx.shared.last_recv_time.lock(|last_recv_time| {
-                        *last_recv_time = Some(monotonics::now().duration_since_epoch().to_millis())
-                    });
+                    let timestamp = monotonics::now().duration_since_epoch().to_millis();
+                    ctx.shared
+                        .last_recv_time
+                        .lock(|last_recv_time| *last_recv_time = Some(timestamp));
+
                     if frame.pdu()[0..2] != [PDU_NOT_AVAILABLE, PDU_NOT_AVAILABLE] {
                         let gate_value = i16::from_le_bytes([frame.pdu()[0], frame.pdu()[1]]);
 
