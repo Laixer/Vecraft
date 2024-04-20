@@ -73,7 +73,6 @@ mod app {
         let pwr = ctx.device.PWR.constrain();
         let pwrcfg = pwr.freeze();
 
-        // RCC
         let rcc = ctx.device.RCC.constrain();
         let mut ccdr = rcc
             .use_hse(crate::HSE)
@@ -94,30 +93,34 @@ mod app {
 
         let mut watchdog = SystemWindowWatchdog::new(ctx.device.WWDG, &ccdr);
 
-        // GPIO
         let gpioa = ctx.device.GPIOA.split(ccdr.peripheral.GPIOA);
         let gpiob = ctx.device.GPIOB.split(ccdr.peripheral.GPIOB);
         let gpioc = ctx.device.GPIOC.split(ccdr.peripheral.GPIOC);
         let gpiod = ctx.device.GPIOD.split(ccdr.peripheral.GPIOD);
         // let gpioe = ctx.device.GPIOE.split(ccdr.peripheral.GPIOE);
 
-        let led = vecraft::RGBLed::new_with_color(
-            gpiob.pb13.into_push_pull_output(),
-            gpiob.pb14.into_push_pull_output(),
-            gpiob.pb12.into_push_pull_output(),
-            &vecraft::state::State::ConfigurationError.as_led(),
-        );
+        let led = {
+            let led_green = gpiob.pb13.into_push_pull_output();
+            let led_blue = gpiob.pb14.into_push_pull_output();
+            let led_red = gpiob.pb12.into_push_pull_output();
 
-        // Configure the SCL and the SDA pin for our I2C bus
-        let scl = gpiob.pb8.into_alternate_open_drain();
-        let sda = gpiob.pb9.into_alternate_open_drain();
+            vecraft::RGBLed::new_with_color(
+                led_green,
+                led_blue,
+                led_red,
+                &vecraft::state::State::ConfigurationError.as_led(),
+            )
+        };
 
-        let i2c = ctx
-            .device
-            .I2C1
-            .i2c((scl, sda), 400.kHz(), ccdr.peripheral.I2C1, &ccdr.clocks);
+        let mut eeprom = {
+            let scl = gpiob.pb8.into_alternate_open_drain();
+            let sda = gpiob.pb9.into_alternate_open_drain();
 
-        let mut eeprom = vecraft::eeprom::Eeprom::new(i2c);
+            #[rustfmt::skip]
+            let i2c1 = ctx.device.I2C1.i2c((scl, sda), 400.kHz(), ccdr.peripheral.I2C1, &ccdr.clocks);
+
+            vecraft::eeprom::Eeprom::new(i2c1)
+        };
 
         // TODO: Remove this block
         // eeprom.write_page(
@@ -148,23 +151,23 @@ mod app {
             Ok(config) => config,
         };
 
-        // UART
-        let mut console = vecraft::console::Console::new(
-            ctx.device
+        let mut console = {
+            let rx = gpiod.pd5.into_alternate();
+            let tx = gpiod.pd6.into_alternate();
+
+            let usart2 = ctx
+                .device
                 .USART2
                 .serial(
-                    (gpiod.pd5.into_alternate(), gpiod.pd6.into_alternate()),
+                    (rx, tx),
                     config.uart_baudrate.bps(),
                     ccdr.peripheral.USART2,
                     &ccdr.clocks,
                 )
-                .unwrap(),
-        );
+                .expect("Failed to initialize USART2");
 
-        let fdcan_prec = ccdr
-            .peripheral
-            .FDCAN
-            .kernel_clk_mux(rcc::rec::FdcanClkSel::Pll1Q);
+            vecraft::console::Console::new(usart2)
+        };
 
         assert!(config.canbus1_bitrate == 250_000 || config.canbus1_bitrate == 500_000);
 
@@ -173,8 +176,15 @@ mod app {
             let tx = gpiod.pd1.into_alternate().speed(gpio::Speed::VeryHigh);
             let term = gpiod.pd3.into_push_pull_output();
 
+            let fdcan_prec = ccdr
+                .peripheral
+                .FDCAN
+                .kernel_clk_mux(rcc::rec::FdcanClkSel::Pll1Q);
+
+            let fdcan1 = ctx.device.FDCAN1.fdcan(tx, rx, fdcan_prec);
+
             #[rustfmt::skip]
-            let builder = vecraft::can::CanBuilder::new(ctx.device.FDCAN1.fdcan(tx, rx, fdcan_prec), term)
+            let builder = vecraft::can::CanBuilder::new(fdcan1, term)
                     .set_bit_timing(vecraft::can::bit_timing_from_baudrate(config.canbus1_bitrate).unwrap_or(vecraft::can::BITRATE_250K))
                     .set_j1939_broadcast_filter()
                     .set_j1939_destination_address_filter(config.j1939_address)

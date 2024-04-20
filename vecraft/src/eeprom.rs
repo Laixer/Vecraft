@@ -1,5 +1,5 @@
 use stm32h7xx_hal::hal::blocking::i2c::{Read, Write, WriteRead};
-use stm32h7xx_hal::i2c::Error;
+use stm32h7xx_hal::i2c::Error as I2cError;
 
 const EEPROM_I2C_ADDRESS: u8 = 0x50; // 0b0101_0000
 const EEPROM_SIZE: usize = 64_000;
@@ -14,7 +14,7 @@ pub struct Eeprom<T> {
 }
 
 /// Represents an EEPROM device.
-impl<T: WriteRead<Error = Error> + Read<Error = Error> + Write<Error = Error>> Eeprom<T> {
+impl<T: WriteRead<Error = I2cError> + Read<Error = I2cError> + Write<Error = I2cError>> Eeprom<T> {
     /// Creates a new instance of `Eeprom` with the specified I2C peripheral.
     ///
     /// # Arguments
