@@ -85,11 +85,10 @@ mod app {
             .pll3_q_ck(crate::USART_CLOCK)
             .freeze(pwrcfg, &ctx.device.SYSCFG);
 
-        // Switch adc_ker_ck_input multiplexer to per_ck
+        #[rustfmt::skip]
         ccdr.peripheral.kernel_adc_clk_mux(rcc::rec::AdcClkSel::Per);
-
-        ccdr.peripheral
-            .kernel_usart234578_clk_mux(rcc::rec::Usart234578ClkSel::Pll3Q);
+        #[rustfmt::skip]
+        ccdr.peripheral.kernel_usart234578_clk_mux(rcc::rec::Usart234578ClkSel::Pll3Q);
 
         let mut watchdog = SystemWindowWatchdog::new(ctx.device.WWDG, &ccdr);
 
@@ -128,28 +127,26 @@ mod app {
         //     &vecraft::VecraftConfig::default().to_bytes(),
         // );
 
-        // TODO: Replace array size with a constant
-        let mut vecraft_config = [0; 64];
-        eeprom.read_page(vecraft::VECRAFT_CONFIG_PAGE, &mut vecraft_config);
+        let config = vecraft::get_config(&mut eeprom);
 
-        let config = match vecraft::VecraftConfig::try_from(&vecraft_config[..]) {
-            Err(vecraft::ConfigError::InvalidHeader) => {
-                let mut vecraft_config_default = [0; 64];
-                eeprom.read_page(
-                    vecraft::VECRAFT_CONFIG_PAGE + 250,
-                    &mut vecraft_config_default,
-                );
+        // // TODO: Replace array size with a constant
+        // let mut vecraft_config = [0; vecraft::VECRAFT_CONFIG_SIZE];
+        // eeprom.read_page(vecraft::VECRAFT_CONFIG_PAGE, &mut vecraft_config);
 
-                vecraft::VecraftConfig::try_from(&vecraft_config_default[..])
-                    .expect("No factory config");
+        // let config = match vecraft::VecraftConfig::try_from(&vecraft_config[..]) {
+        //     Err(vecraft::ConfigError::InvalidHeader) => {
+        //         let mut vecraft_config_default = [0; vecraft::VECRAFT_CONFIG_SIZE];
 
-                eeprom.write_page(vecraft::VECRAFT_CONFIG_PAGE, &vecraft_config_default);
-                vecraft::sys_reboot();
-                unreachable!();
-            }
-            Err(vecraft::ConfigError::InvalidVersion) => panic!("Invalid config"),
-            Ok(config) => config,
-        };
+        //         eeprom.read_page(vecraft::VECRAFT_CONFIG_PAGE + 250, &mut vecraft_config_default);
+        //         vecraft::VecraftConfig::try_from(&vecraft_config_default[..]).expect("No factory config");
+        //         eeprom.write_page(vecraft::VECRAFT_CONFIG_PAGE, &vecraft_config_default);
+
+        //         vecraft::sys_reboot();
+        //         unreachable!();
+        //     }
+        //     Err(vecraft::ConfigError::InvalidVersion) => panic!("Invalid config"),
+        //     Ok(config) => config,
+        // };
 
         let mut console = {
             let rx = gpiod.pd5.into_alternate();
@@ -396,28 +393,18 @@ mod app {
             if config.is_dirty {
                 let config = ctx.shared.config.lock(|config| *config);
 
-                #[rustfmt::skip]
-                ctx.local.eeprom.write_page(vecraft::VECRAFT_CONFIG_PAGE, &config.to_bytes());
+                vecraft::put_config(ctx.local.eeprom, &config);
 
                 #[rustfmt::skip]
                 ctx.shared.config.lock(|config| config.is_dirty = false);
-                vecraft::sys_reboot();
             }
             if config.is_factory_reset {
-                let mut vecraft_config_default = [0; 64];
+                let default_config = vecraft::reset_config(ctx.local.eeprom);
 
-                #[rustfmt::skip]
-                ctx.local.eeprom.read_page(vecraft::VECRAFT_CONFIG_PAGE + 250, &mut vecraft_config_default);
-
-                vecraft::VecraftConfig::try_from(&vecraft_config_default[..])
-                    .expect("No factory config");
-
-                #[rustfmt::skip]
-                ctx.local.eeprom.write_page(vecraft::VECRAFT_CONFIG_PAGE, &vecraft_config_default);
+                ctx.shared.config.lock(|config| *config = default_config);
 
                 #[rustfmt::skip]
                 ctx.shared.config.lock(|config| config.is_factory_reset = false);
-                vecraft::sys_reboot();
             }
         }
 
