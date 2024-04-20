@@ -74,50 +74,34 @@ impl From<EcuApplication> for u8 {
     }
 }
 
-use stm32h7xx_hal::hal::blocking::i2c::{Read, Write, WriteRead};
+use stm32h7xx_hal::hal::blocking::i2c::{Write, WriteRead};
 use stm32h7xx_hal::i2c::Error as I2cError;
 
-pub trait I2CReadWriteTrait:
-    WriteRead<Error = I2cError> + Read<Error = I2cError> + Write<Error = I2cError>
-{
-}
-
-pub fn get_config<
-    T: WriteRead<Error = I2cError> + Read<Error = I2cError> + Write<Error = I2cError>,
->(
+pub fn get_config<T: WriteRead<Error = I2cError> + Write<Error = I2cError>>(
     eeprom: &mut eeprom::Eeprom<T>,
 ) -> VecraftConfig {
     let mut vecraft_config = [0; VECRAFT_CONFIG_SIZE];
     eeprom.read_page(VECRAFT_CONFIG_PAGE, &mut vecraft_config);
 
     match VecraftConfig::try_from(&vecraft_config[..]) {
-        Err(ConfigError::InvalidHeader) => {
-            let default_config = VecraftConfig::default();
-            eeprom.write_page(VECRAFT_CONFIG_PAGE, &default_config.to_bytes());
-
-            default_config
-        }
+        Err(ConfigError::InvalidHeader) => reset_config(eeprom),
         Err(ConfigError::InvalidVersion) => panic!("Invalid config"),
         Ok(config) => config,
     }
 }
 
-pub fn put_config<
-    T: WriteRead<Error = I2cError> + Read<Error = I2cError> + Write<Error = I2cError>,
->(
+pub fn put_config<T: WriteRead<Error = I2cError> + Write<Error = I2cError>>(
     eeprom: &mut eeprom::Eeprom<T>,
     config: &VecraftConfig,
 ) {
     eeprom.write_page(VECRAFT_CONFIG_PAGE, &config.to_bytes());
 }
 
-pub fn reset_config<
-    T: WriteRead<Error = I2cError> + Read<Error = I2cError> + Write<Error = I2cError>,
->(
+pub fn reset_config<T: WriteRead<Error = I2cError> + Write<Error = I2cError>>(
     eeprom: &mut eeprom::Eeprom<T>,
 ) -> VecraftConfig {
     let default_config = VecraftConfig::default();
-    eeprom.write_page(VECRAFT_CONFIG_PAGE, &default_config.to_bytes());
+    put_config(eeprom, &default_config);
 
     default_config
 }

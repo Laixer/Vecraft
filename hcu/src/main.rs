@@ -121,32 +121,7 @@ mod app {
             vecraft::eeprom::Eeprom::new(i2c1)
         };
 
-        // TODO: Remove this block
-        // eeprom.write_page(
-        //     vecraft::VECRAFT_CONFIG_PAGE + 250,
-        //     &vecraft::VecraftConfig::default().to_bytes(),
-        // );
-
         let config = vecraft::get_config(&mut eeprom);
-
-        // // TODO: Replace array size with a constant
-        // let mut vecraft_config = [0; vecraft::VECRAFT_CONFIG_SIZE];
-        // eeprom.read_page(vecraft::VECRAFT_CONFIG_PAGE, &mut vecraft_config);
-
-        // let config = match vecraft::VecraftConfig::try_from(&vecraft_config[..]) {
-        //     Err(vecraft::ConfigError::InvalidHeader) => {
-        //         let mut vecraft_config_default = [0; vecraft::VECRAFT_CONFIG_SIZE];
-
-        //         eeprom.read_page(vecraft::VECRAFT_CONFIG_PAGE + 250, &mut vecraft_config_default);
-        //         vecraft::VecraftConfig::try_from(&vecraft_config_default[..]).expect("No factory config");
-        //         eeprom.write_page(vecraft::VECRAFT_CONFIG_PAGE, &vecraft_config_default);
-
-        //         vecraft::sys_reboot();
-        //         unreachable!();
-        //     }
-        //     Err(vecraft::ConfigError::InvalidVersion) => panic!("Invalid config"),
-        //     Ok(config) => config,
-        // };
 
         let mut console = {
             let rx = gpiod.pd5.into_alternate();

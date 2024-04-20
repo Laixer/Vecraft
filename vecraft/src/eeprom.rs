@@ -1,4 +1,4 @@
-use stm32h7xx_hal::hal::blocking::i2c::{Read, Write, WriteRead};
+use stm32h7xx_hal::hal::blocking::i2c::{Write, WriteRead};
 use stm32h7xx_hal::i2c::Error as I2cError;
 
 const EEPROM_I2C_ADDRESS: u8 = 0x50; // 0b0101_0000
@@ -13,8 +13,7 @@ pub struct Eeprom<T> {
     i2c: T,
 }
 
-/// Represents an EEPROM device.
-impl<T: WriteRead<Error = I2cError> + Read<Error = I2cError> + Write<Error = I2cError>> Eeprom<T> {
+impl<T> Eeprom<T> {
     /// Creates a new instance of `Eeprom` with the specified I2C peripheral.
     ///
     /// # Arguments
@@ -27,7 +26,9 @@ impl<T: WriteRead<Error = I2cError> + Read<Error = I2cError> + Write<Error = I2c
     pub fn new(i2c: T) -> Self {
         Self { i2c }
     }
+}
 
+impl<T: Write<Error = I2cError>> Eeprom<T> {
     /// Writes a page of data to the EEPROM.
     ///
     /// # Arguments
@@ -37,17 +38,6 @@ impl<T: WriteRead<Error = I2cError> + Read<Error = I2cError> + Write<Error = I2c
     pub fn write_page(&mut self, page: usize, buffer: &[u8]) {
         let offset = (page.min(EEPROM_PAGE_COUNT) * EEPROM_PAGE_SIZE) as u16;
         self.write_wait(offset, buffer);
-    }
-
-    /// Reads a page of data from the EEPROM.
-    ///
-    /// # Arguments
-    ///
-    /// * `page` - The page number to read from.
-    /// * `buffer` - The buffer to store the read data.
-    pub fn read_page(&mut self, page: usize, buffer: &mut [u8]) {
-        let offset = (page.min(EEPROM_PAGE_COUNT) * EEPROM_PAGE_SIZE) as u16;
-        self.read_wait(offset, buffer);
     }
 
     /// Writes data to the EEPROM at the specified address.
@@ -86,6 +76,20 @@ impl<T: WriteRead<Error = I2cError> + Read<Error = I2cError> + Write<Error = I2c
             }
         }
         panic!("Failed to write to EEPROM");
+    }
+}
+
+/// Represents an EEPROM device.
+impl<T: WriteRead<Error = I2cError>> Eeprom<T> {
+    /// Reads a page of data from the EEPROM.
+    ///
+    /// # Arguments
+    ///
+    /// * `page` - The page number to read from.
+    /// * `buffer` - The buffer to store the read data.
+    pub fn read_page(&mut self, page: usize, buffer: &mut [u8]) {
+        let offset = (page.min(EEPROM_PAGE_COUNT) * EEPROM_PAGE_SIZE) as u16;
+        self.read_wait(offset, buffer);
     }
 
     /// Reads data from the EEPROM at the specified address.
