@@ -63,7 +63,7 @@ mod app {
         led: vecraft::RGBLed,
         gate_control: vecraft::lsgc::GateControl,
         watchdog: SystemWindowWatchdog,
-        eeprom: vecraft::eeprom::Eeprom,
+        eeprom: vecraft::eeprom::Eeprom<stm32h7xx_hal::i2c::I2c<stm32h7xx_hal::pac::I2C1>>,
     }
 
     #[init]
@@ -173,12 +173,9 @@ mod app {
             let tx = gpiod.pd1.into_alternate().speed(gpio::Speed::VeryHigh);
             let term = gpiod.pd3.into_push_pull_output();
 
-            let builder =
-                vecraft::can::CanBuilder::new(ctx.device.FDCAN1.fdcan(tx, rx, fdcan_prec), term)
-                    .set_bit_timing(
-                        vecraft::can::bit_timing_from_baudrate(config.canbus1_bitrate)
-                            .unwrap_or(vecraft::can::BITRATE_250K),
-                    )
+            #[rustfmt::skip]
+            let builder = vecraft::can::CanBuilder::new(ctx.device.FDCAN1.fdcan(tx, rx, fdcan_prec), term)
+                    .set_bit_timing(vecraft::can::bit_timing_from_baudrate(config.canbus1_bitrate).unwrap_or(vecraft::can::BITRATE_250K))
                     .set_j1939_broadcast_filter()
                     .set_j1939_destination_address_filter(config.j1939_address)
                     .set_termination(config.canbus1_termination);

@@ -1,21 +1,20 @@
-use stm32h7xx_hal::prelude::*;
-use stm32h7xx_hal::{device::I2C1, i2c::I2c};
+use stm32h7xx_hal::hal::blocking::i2c::{Read, Write, WriteRead};
+use stm32h7xx_hal::i2c::Error;
 
 const EEPROM_I2C_ADDRESS: u8 = 0x50; // 0b0101_0000
 const EEPROM_SIZE: usize = 64_000;
 const EEPROM_PAGE_SIZE: usize = 128;
 const EEPROM_PAGE_COUNT: usize = EEPROM_SIZE / EEPROM_PAGE_SIZE;
 
-// FUTURE: Replace I2C1 with a generic I2C peripheral.
 /// EEPROM driver
 ///
 /// This driver is used to read and write data to the 24LC512 EEPROM.
-pub struct Eeprom {
-    i2c: I2c<I2C1>,
+pub struct Eeprom<T> {
+    i2c: T,
 }
 
 /// Represents an EEPROM device.
-impl Eeprom {
+impl<T: WriteRead<Error = Error> + Read<Error = Error> + Write<Error = Error>> Eeprom<T> {
     /// Creates a new instance of `Eeprom` with the specified I2C peripheral.
     ///
     /// # Arguments
@@ -25,7 +24,7 @@ impl Eeprom {
     /// # Returns
     ///
     /// A new instance of `Eeprom`.
-    pub fn new(i2c: I2c<I2C1>) -> Self {
+    pub fn new(i2c: T) -> Self {
         Self { i2c }
     }
 
