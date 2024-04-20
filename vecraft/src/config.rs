@@ -16,8 +16,8 @@
 // Source address : [0xFF]
 
 pub const VECRAFT_CONFIG_PAGE: usize = 1;
+pub const VECRAFT_CONFIG_SIZE: usize = 64;
 
-const VECRAFT_CONFIG_SIZE: usize = 64;
 const VECRAFT_CONFIG_HEADER: [u8; 3] = *b"LXR";
 const VECRAFT_CONFIG_VERSION: u8 = 0x1;
 
@@ -106,7 +106,7 @@ impl Default for VecraftConfig {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum ConfigError {
     InvalidHeader,
     InvalidVersion,
