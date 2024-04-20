@@ -88,6 +88,24 @@ impl VecraftConfig {
     }
 }
 
+impl Default for VecraftConfig {
+    fn default() -> Self {
+        Self {
+            is_dirty: false,
+            is_factory_reset: false,
+            ecu_mode: 0x0,
+            serial_number: [0; 8],
+            uart_selected: 0x2,
+            uart_baudrate: 115_200,
+            canbus1_bitrate: 250_000,
+            canbus1_termination: false,
+            j1939_address: 0x25,
+            j1939_name: [0; 8],
+            j1939_source_address: None,
+        }
+    }
+}
+
 #[derive(Copy, Clone, Debug)]
 pub enum ConfigError {
     InvalidHeader,

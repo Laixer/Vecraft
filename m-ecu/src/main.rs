@@ -144,21 +144,10 @@ mod app {
         let mut eeprom = vecraft::eeprom::Eeprom::new(i2c);
 
         // TODO: Remove this block
-        // {
-        //     let mut cfg = vecraft::VecraftConfig::new(
-        //         0x10,
-        //         [0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8],
-        //         [0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8],
-        //     );
-        //     cfg.uart_selected = 0x2;
-        //     cfg.uart_baudrate = 115_200;
-        //     cfg.canbus1_bitrate = 250_000;
-        //     cfg.canbus1_termination = false;
-        //     cfg.j1939_address = 0x12;
-        //     cfg.j1939_source_address = None;
-
-        //     eeprom.write_page(vecraft::VECRAFT_CONFIG_PAGE, &cfg.to_bytes());
-        // }
+        // eeprom.write_page(
+        //     vecraft::VECRAFT_CONFIG_PAGE + 250,
+        //     &vecraft::VecraftConfig::default().to_bytes(),
+        // );
 
         // TODO: Replace array size with a constant
         let mut vecraft_config = [0; 64];
