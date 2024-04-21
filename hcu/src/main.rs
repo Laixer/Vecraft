@@ -23,6 +23,8 @@ const PKG_VERSION_PATCH: &str = env!("CARGO_PKG_VERSION_PATCH");
 const HSE: Hertz = Hertz::MHz(25);
 /// System clock frequency.
 const SYS_CLOCK: Hertz = Hertz::MHz(400);
+/// Peripheral clock frequency.
+const PERIPHERAL_CLOCK: Hertz = Hertz::MHz(32);
 /// FDCAN peripheral clock.
 const FDCAN_CLOCK: Hertz = Hertz::MHz(32);
 /// USART peripheral clock.
@@ -70,14 +72,16 @@ mod app {
     fn init(ctx: init::Context) -> (SharedResources, LocalResources, init::Monotonics) {
         let mono = Systick::new(ctx.core.SYST, crate::SYS_CLOCK.to_Hz());
 
-        let pwr = ctx.device.PWR.constrain();
-        let pwrcfg = pwr.freeze();
+        let pwrcfg = {
+            let pwr = ctx.device.PWR.constrain();
+            pwr.freeze()
+        };
 
         let rcc = ctx.device.RCC.constrain();
         let mut ccdr = rcc
             .use_hse(crate::HSE)
             .sys_ck(crate::SYS_CLOCK)
-            .per_ck(32.MHz())
+            .per_ck(crate::PERIPHERAL_CLOCK)
             .pll1_strategy(rcc::PllConfigStrategy::Iterative)
             .pll1_q_ck(crate::FDCAN_CLOCK)
             .pll3_strategy(rcc::PllConfigStrategy::Iterative)
