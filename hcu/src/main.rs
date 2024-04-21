@@ -581,7 +581,7 @@ mod app {
                         }
                     }
                 }
-                PGN::Other(40_960) => {
+                PGN::ProprietaryB(65_290) | PGN::Other(40_960) => {
                     let timestamp = monotonics::now().duration_since_epoch().to_millis();
                     ctx.shared
                         .last_recv_time
@@ -620,7 +620,7 @@ mod app {
                             .set_value(valve_value(gate_value));
                     }
                 }
-                PGN::Other(41_216) => {
+                PGN::ProprietaryB(65_291) | PGN::Other(41_216) => {
                     let timestamp = monotonics::now().duration_since_epoch().to_millis();
                     ctx.shared
                         .last_recv_time
@@ -658,6 +658,9 @@ mod app {
                             .gate7
                             .set_value(valve_value(gate_value));
                     }
+                }
+                PGN::ProprietaryB(65_292) => {
+                    //
                 }
                 _ => {}
             }
