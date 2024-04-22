@@ -36,14 +36,6 @@ const USART_CLOCK: Hertz = Hertz::MHz(48);
 // const ENGINE_RPM_MAX: u16 = 2300;
 mod protocol;
 
-// #[derive(Copy, Clone, Debug)]
-// pub struct Config {
-//     pub is_dirty: bool,
-//     pub is_factory_reset: bool,
-//     pub sa: u8,
-//     pub da: u8,
-// }
-
 #[rtic::app(device = stm32h7xx_hal::stm32, peripherals = true, dispatchers = [USART1, USART2])]
 mod app {
     use stm32h7xx_hal::gpio::{self};
