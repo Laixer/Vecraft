@@ -53,7 +53,7 @@ mod app {
 
     use vecraft::fdcan;
     use vecraft::j1939::{
-        protocol, FrameBuilder, IdBuilder, NameBuilder, FIELD_DELIMITER, PDU_NOT_AVAILABLE, PGN,
+        protocol, FrameBuilder, IdBuilder, FIELD_DELIMITER, PDU_NOT_AVAILABLE, PGN,
     };
     use vecraft::Systick;
 
