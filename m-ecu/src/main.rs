@@ -23,6 +23,8 @@ const PKG_VERSION_PATCH: &str = env!("CARGO_PKG_VERSION_PATCH");
 const HSE: Hertz = Hertz::MHz(25);
 /// System clock frequency.
 const SYS_CLOCK: Hertz = Hertz::MHz(400);
+/// Peripheral clock frequency.
+const PERIPHERAL_CLOCK: Hertz = Hertz::MHz(32);
 /// FDCAN peripheral clock.
 const FDCAN_CLOCK: Hertz = Hertz::MHz(32);
 /// USART peripheral clock.
@@ -94,15 +96,16 @@ mod app {
     fn init(ctx: init::Context) -> (SharedResources, LocalResources, init::Monotonics) {
         let mono = Systick::new(ctx.core.SYST, crate::SYS_CLOCK.to_Hz());
 
-        let pwr = ctx.device.PWR.constrain();
-        let pwrcfg = pwr.freeze();
+        let pwrcfg = {
+            let pwr = ctx.device.PWR.constrain();
+            pwr.freeze()
+        };
 
-        // RCC
         let rcc = ctx.device.RCC.constrain();
         let mut ccdr = rcc
             .use_hse(crate::HSE)
             .sys_ck(crate::SYS_CLOCK)
-            .per_ck(32.MHz())
+            .per_ck(crate::PERIPHERAL_CLOCK)
             .pll1_strategy(rcc::PllConfigStrategy::Iterative)
             .pll1_q_ck(crate::FDCAN_CLOCK)
             .pll3_strategy(rcc::PllConfigStrategy::Iterative)
@@ -110,11 +113,10 @@ mod app {
             .pll3_q_ck(crate::USART_CLOCK)
             .freeze(pwrcfg, &ctx.device.SYSCFG);
 
-        // Switch adc_ker_ck_input multiplexer to per_ck
+        #[rustfmt::skip]
         ccdr.peripheral.kernel_adc_clk_mux(rcc::rec::AdcClkSel::Per);
-
-        ccdr.peripheral
-            .kernel_usart234578_clk_mux(rcc::rec::Usart234578ClkSel::Pll3Q);
+        #[rustfmt::skip]
+        ccdr.peripheral.kernel_usart234578_clk_mux(rcc::rec::Usart234578ClkSel::Pll3Q);
 
         let mut watchdog = SystemWindowWatchdog::new(ctx.device.WWDG, &ccdr);
 
@@ -125,70 +127,48 @@ mod app {
         // let gpioc = ctx.device.GPIOC.split(ccdr.peripheral.GPIOC);
         let gpioe = ctx.device.GPIOE.split(ccdr.peripheral.GPIOE);
 
-        let led = vecraft::RGBLed::new_with_color(
-            gpiob.pb13.into_push_pull_output(),
-            gpiob.pb14.into_push_pull_output(),
-            gpiob.pb12.into_push_pull_output(),
-            &vecraft::state::State::ConfigurationError.as_led(),
-        );
+        let led = {
+            let led_green = gpiob.pb13.into_push_pull_output();
+            let led_blue = gpiob.pb14.into_push_pull_output();
+            let led_red = gpiob.pb12.into_push_pull_output();
 
-        // Configure the SCL and the SDA pin for our I2C bus
-        let scl = gpiob.pb8.into_alternate_open_drain();
-        let sda = gpiob.pb9.into_alternate_open_drain();
-
-        let i2c = ctx
-            .device
-            .I2C1
-            .i2c((scl, sda), 400.kHz(), ccdr.peripheral.I2C1, &ccdr.clocks);
-
-        let mut eeprom = vecraft::eeprom::Eeprom::new(i2c);
-
-        // TODO: Remove this block
-        // eeprom.write_page(
-        //     vecraft::VECRAFT_CONFIG_PAGE + 250,
-        //     &vecraft::VecraftConfig::default().to_bytes(),
-        // );
-
-        // TODO: Replace array size with a constant
-        let mut vecraft_config = [0; 64];
-        eeprom.read_page(vecraft::VECRAFT_CONFIG_PAGE, &mut vecraft_config);
-
-        let config = match vecraft::VecraftConfig::try_from(&vecraft_config[..]) {
-            Err(vecraft::ConfigError::InvalidHeader) => {
-                let mut vecraft_config_default = [0; 64];
-                eeprom.read_page(
-                    vecraft::VECRAFT_CONFIG_PAGE + 250,
-                    &mut vecraft_config_default,
-                );
-
-                vecraft::VecraftConfig::try_from(&vecraft_config_default[..])
-                    .expect("No factory config");
-
-                eeprom.write_page(vecraft::VECRAFT_CONFIG_PAGE, &vecraft_config_default);
-                vecraft::sys_reboot();
-                unreachable!();
-            }
-            Err(vecraft::ConfigError::InvalidVersion) => panic!("Invalid config"),
-            Ok(config) => config,
+            vecraft::RGBLed::new_with_color(
+                led_green,
+                led_blue,
+                led_red,
+                &vecraft::state::State::ConfigurationError.as_led(),
+            )
         };
 
-        // UART
-        let mut console = vecraft::console::Console::new(
-            ctx.device
+        let mut eeprom = {
+            let scl = gpiob.pb8.into_alternate_open_drain();
+            let sda = gpiob.pb9.into_alternate_open_drain();
+
+            #[rustfmt::skip]
+            let i2c1 = ctx.device.I2C1.i2c((scl, sda), 400.kHz(), ccdr.peripheral.I2C1, &ccdr.clocks);
+
+            vecraft::eeprom::Eeprom::new(i2c1)
+        };
+
+        let config = vecraft::get_config(&mut eeprom);
+
+        let mut console = {
+            let rx = gpiod.pd5.into_alternate();
+            let tx = gpiod.pd6.into_alternate();
+
+            let usart2 = ctx
+                .device
                 .USART2
                 .serial(
-                    (gpiod.pd5.into_alternate(), gpiod.pd6.into_alternate()),
+                    (rx, tx),
                     config.uart_baudrate.bps(),
                     ccdr.peripheral.USART2,
                     &ccdr.clocks,
                 )
-                .unwrap(),
-        );
+                .expect("Failed to initialize USART2");
 
-        let fdcan_prec = ccdr
-            .peripheral
-            .FDCAN
-            .kernel_clk_mux(rcc::rec::FdcanClkSel::Pll1Q);
+            vecraft::console::Console::new(usart2)
+        };
 
         assert!(config.canbus1_bitrate == 250_000 || config.canbus1_bitrate == 500_000);
 
@@ -197,8 +177,15 @@ mod app {
             let tx = gpiod.pd1.into_alternate().speed(gpio::Speed::VeryHigh);
             let term = gpiod.pd3.into_push_pull_output();
 
+            let fdcan_prec = ccdr
+                .peripheral
+                .FDCAN
+                .kernel_clk_mux(rcc::rec::FdcanClkSel::Pll1Q);
+
+            let fdcan1 = ctx.device.FDCAN1.fdcan(tx, rx, fdcan_prec);
+
             #[rustfmt::skip]
-            let builder = vecraft::can::CanBuilder::new(ctx.device.FDCAN1.fdcan(tx, rx, fdcan_prec), term)
+            let builder = vecraft::can::CanBuilder::new(fdcan1, term)
                     .set_bit_timing(vecraft::can::bit_timing_from_baudrate(config.canbus1_bitrate).unwrap_or(vecraft::can::BITRATE_250K))
                     .set_j1939_broadcast_filter()
                     .set_j1939_destination_address_filter(config.j1939_address)
@@ -257,28 +244,16 @@ mod app {
         //
 
         firmware_state::spawn().ok();
-        // firmware_test::spawn().ok();
+        // commit_config::spawn_after(1.minutes().into()).ok();
 
         watchdog.start(75.millis());
         // watchdog.listen(EarlyWakeup); // TODO: Always listen for early wakeup
 
         // TOOD: Move to vecraft module
-        {
-            // TODO: Make an identity number based on debug and firmware version
-            let name = NameBuilder::default()
-                .identity_number(config.serial_number().1)
-                .manufacturer_code(config.j1939_name().manufacturer_code)
-                .function_instance(config.j1939_name().function_instance)
-                .ecu_instance(config.j1939_name().ecu_instance)
-                .function(config.j1939_name().function)
-                .vehicle_system(config.j1939_name().vehicle_system)
-                .vehicle_system_instance(config.j1939_name().vehicle_system_instance)
-                .industry_group(config.j1939_name().industry_group)
-                .arbitrary_address(config.j1939_name().arbitrary_address)
-                .build();
-
-            canbus1.send(protocol::address_claimed(config.j1939_address, name));
-        }
+        canbus1.send(protocol::address_claimed(
+            config.j1939_address,
+            config.j1939_name(),
+        ));
 
         // TOOD: Move to vecraft module
         {
@@ -341,28 +316,18 @@ mod app {
             if config.is_dirty {
                 let config = ctx.shared.config.lock(|config| *config);
 
-                #[rustfmt::skip]
-                ctx.local.eeprom.write_page(vecraft::VECRAFT_CONFIG_PAGE, &config.to_bytes());
+                vecraft::put_config(ctx.local.eeprom, &config);
 
                 #[rustfmt::skip]
                 ctx.shared.config.lock(|config| config.is_dirty = false);
-                vecraft::sys_reboot();
             }
             if config.is_factory_reset {
-                let mut vecraft_config_default = [0; 64];
+                let default_config = vecraft::reset_config(ctx.local.eeprom);
 
-                #[rustfmt::skip]
-                ctx.local.eeprom.read_page(vecraft::VECRAFT_CONFIG_PAGE + 250, &mut vecraft_config_default);
-
-                vecraft::VecraftConfig::try_from(&vecraft_config_default[..])
-                    .expect("No factory config");
-
-                #[rustfmt::skip]
-                ctx.local.eeprom.write_page(vecraft::VECRAFT_CONFIG_PAGE, &vecraft_config_default);
+                ctx.shared.config.lock(|config| *config = default_config);
 
                 #[rustfmt::skip]
                 ctx.shared.config.lock(|config| config.is_factory_reset = false);
-                vecraft::sys_reboot();
             }
         }
 
@@ -464,23 +429,11 @@ mod app {
                             ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
                         }
                         PGN::AddressClaimed => {
-                            // TODO: Make an identity number based on debug and firmware version
-                            let name = NameBuilder::default()
-                                .identity_number(config.serial_number().1)
-                                .manufacturer_code(config.j1939_name().manufacturer_code)
-                                .function_instance(config.j1939_name().function_instance)
-                                .ecu_instance(config.j1939_name().ecu_instance)
-                                .function(config.j1939_name().function)
-                                .vehicle_system(config.j1939_name().vehicle_system)
-                                .vehicle_system_instance(
-                                    config.j1939_name().vehicle_system_instance,
-                                )
-                                .industry_group(config.j1939_name().industry_group)
-                                .arbitrary_address(config.j1939_name().arbitrary_address)
-                                .build();
-
                             ctx.shared.canbus1.lock(|canbus1| {
-                                canbus1.send(protocol::address_claimed(config.j1939_address, name))
+                                canbus1.send(protocol::address_claimed(
+                                    config.j1939_address,
+                                    config.j1939_name(),
+                                ))
                             });
                         }
                         _ => {
