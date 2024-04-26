@@ -196,7 +196,7 @@ mod app {
         // From this point on, setup hardware and peripherals for this specific application
         //
 
-        assert!(config.ecu_mode() == 0x10);
+        assert!(config.ecu_mode() == vecraft::EcuApplication::StarterControl);
 
         let mut power2_enable = gpioe.pe2.into_push_pull_output();
 
@@ -458,7 +458,9 @@ mod app {
                 }
                 PGN::ElectronicEngineController1 => {
                     // TODO: Needs tuning, see #15
-                    // Used for hydraulic pump control
+                    // let message = vecraft::j1939::spn::ElectronicEngineController1Message::from_pdu(
+                    //     frame.pdu(),
+                    // );
                     // if let Some(rpm) = message.rpm {
                     //     let duty = match rpm {
                     //         ..=1049 => 24_500,

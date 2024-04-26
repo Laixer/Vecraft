@@ -26,6 +26,7 @@ pub use led::{LedState, RGBLed};
 /// can have multiple applications, but only one application can be active at a time.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EcuApplication {
+    Unknown,
     PumpControl,
     StarterControl,
     HydraulicControl,
@@ -46,6 +47,7 @@ impl TryFrom<u8> for EcuApplication {
     /// The `EcuApplication` variant corresponding to the given `u8` value.
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
+            0x00 => Ok(Self::Unknown),
             0x10 => Ok(Self::PumpControl),
             0x11 => Ok(Self::StarterControl),
             0x15 => Ok(Self::HydraulicControl),
@@ -67,6 +69,7 @@ impl From<EcuApplication> for u8 {
     /// The `u8` value corresponding to the given `EcuApplication` variant.
     fn from(value: EcuApplication) -> Self {
         match value {
+            EcuApplication::Unknown => 0x00,
             EcuApplication::PumpControl => 0x10,
             EcuApplication::StarterControl => 0x11,
             EcuApplication::HydraulicControl => 0x15,

@@ -54,8 +54,10 @@ impl VecraftConfig {
     }
 
     #[inline]
-    pub fn ecu_mode(&self) -> u8 {
+    pub fn ecu_mode(&self) -> crate::EcuApplication {
         self.ecu_mode
+            .try_into()
+            .unwrap_or(crate::EcuApplication::Unknown)
     }
 
     pub fn serial_number(&self) -> (u32, u32) {
