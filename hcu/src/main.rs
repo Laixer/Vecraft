@@ -179,7 +179,7 @@ mod app {
         // From this point on, setup hardware and peripherals for this specific application
         //
 
-        assert!(config.ecu_mode() == vecraft::EcuApplication::HydraulicControl);
+        assert!([vecraft::EcuApplication::HydraulicControl].contains(&config.ecu_mode()));
 
         let (_, (pwm_high1, pwm_low1, pwm_high2, pwm_low2)) = ctx
             .device

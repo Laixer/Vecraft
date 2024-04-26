@@ -196,7 +196,11 @@ mod app {
         // From this point on, setup hardware and peripherals for this specific application
         //
 
-        assert!(config.ecu_mode() == vecraft::EcuApplication::StarterControl);
+        assert!([
+            vecraft::EcuApplication::StarterControl,
+            vecraft::EcuApplication::PumpControl
+        ]
+        .contains(&config.ecu_mode()));
 
         let mut power2_enable = gpioe.pe2.into_push_pull_output();
 
@@ -458,21 +462,25 @@ mod app {
                 }
                 PGN::ElectronicEngineController1 => {
                     // TODO: Needs tuning, see #15
-                    // let message = vecraft::j1939::spn::ElectronicEngineController1Message::from_pdu(
-                    //     frame.pdu(),
-                    // );
-                    // if let Some(rpm) = message.rpm {
-                    //     let duty = match rpm {
-                    //         ..=1049 => 24_500,
-                    //         1050..=1549 => 22_500,
-                    //         1550..=u16::MAX => 20_500,
-                    //     };
+                    if config.ecu_mode() == vecraft::EcuApplication::PumpControl {
+                        // let message = vecraft::j1939::spn::ElectronicEngineController1Message::from_pdu(
+                        //     frame.pdu(),
+                        // );
+                        // if let Some(rpm) = message.rpm {
+                        //     let duty = match rpm {
+                        //         ..=1049 => 24_500,
+                        //         1050..=1549 => 22_500,
+                        //         1550..=u16::MAX => 20_500,
+                        //     };
 
-                    //     ctx.local.pwm0.set_duty(duty);
-                    // }
+                        //     ctx.local.pwm0.set_duty(duty);
+                        // }
+                    }
                 }
                 PGN::ProprietaryB(65_282) => {
-                    if frame.id().sa() == 0x11 {
+                    if frame.id().sa() == 0x11
+                        && config.ecu_mode() == vecraft::EcuApplication::StarterControl
+                    {
                         let message =
                             crate::protocol::VolvoSpeedRequestMessage::from_pdu(frame.pdu());
 
