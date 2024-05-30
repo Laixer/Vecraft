@@ -70,6 +70,7 @@ mod app {
 
     #[init]
     fn init(ctx: init::Context) -> (SharedResources, LocalResources, init::Monotonics) {
+        let mut state = vecraft::state::System::boot();
         let mono = Systick::new(ctx.core.SYST, crate::SYS_CLOCK.to_Hz());
 
         let pwrcfg = {
@@ -136,8 +137,11 @@ mod app {
 
         // vecraft::put_config(&mut eeprom, &init_config);
 
-        let config =
-            vecraft::get_config(&mut eeprom).unwrap_or(vecraft::VecraftConfig::safe_mode());
+        let config = vecraft::get_config(&mut eeprom).unwrap_or_else(|_e| {
+            // TODO: Queue error message
+            state.set_configuration_error(true);
+            vecraft::VecraftConfig::safe_mode()
+        });
 
         let mut console = {
             let rx = gpiod.pd5.into_alternate();
@@ -188,12 +192,6 @@ mod app {
         //
         // From this point on, setup hardware and peripherals for this specific application
         //
-
-        assert!([
-            vecraft::EcuApplication::HydraulicControl,
-            vecraft::EcuApplication::SafeMode
-        ]
-        .contains(&config.ecu_mode()));
 
         let (_, (pwm_high1, pwm_low1, pwm_high2, pwm_low2)) = ctx
             .device
@@ -333,7 +331,7 @@ mod app {
 
         (
             SharedResources {
-                state: vecraft::state::System::boot(),
+                state,
                 console,
                 canbus1,
                 gate_lock,

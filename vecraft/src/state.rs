@@ -59,6 +59,8 @@ pub struct System {
     application_specific: bool,
     /// Indicate a bus error.
     bus_error: bool,
+    /// Indicate configuration error.
+    configuration_error: bool,
 }
 
 impl System {
@@ -68,6 +70,7 @@ impl System {
             ident: false,
             application_specific: false,
             bus_error: false,
+            configuration_error: false,
         }
     }
 
@@ -89,12 +92,20 @@ impl System {
         self.bus_error = on
     }
 
+    /// Enable or disable the configuration error.
+    #[inline]
+    pub fn set_configuration_error(&mut self, on: bool) {
+        self.configuration_error = on
+    }
+
     /// Get the current state of the system.
     pub fn state(&self) -> State {
-        if self.bus_error {
-            State::FaultyBusError
-        } else if self.ident {
+        if self.ident {
             State::Ident
+        } else if self.bus_error {
+            State::FaultyBusError
+        } else if self.configuration_error {
+            State::ConfigurationError
         } else if self.application_specific {
             State::ApplicationSpecific
         } else {
