@@ -39,17 +39,17 @@ pub struct VecraftConfig {
 impl VecraftConfig {
     pub fn new(ecu_mode: u8, serial_number: [u8; 8], j1939_name: [u8; 8]) -> Self {
         Self {
-            is_dirty: false,
-            is_factory_reset: false,
             ecu_mode,
             serial_number,
-            uart_selected: 0,
-            uart_baudrate: 0,
-            canbus1_bitrate: 0,
-            canbus1_termination: false,
-            j1939_address: 0,
             j1939_name,
-            j1939_source_address: None,
+            ..Default::default()
+        }
+    }
+
+    pub fn safe_mode() -> Self {
+        Self {
+            ecu_mode: crate::EcuApplication::SafeMode.into(),
+            ..Default::default()
         }
     }
 
@@ -95,12 +95,12 @@ impl Default for VecraftConfig {
         Self {
             is_dirty: false,
             is_factory_reset: false,
-            ecu_mode: 0x0,
+            ecu_mode: crate::EcuApplication::Unknown.into(),
             serial_number: [0; 8],
             uart_selected: 0x2,
-            uart_baudrate: 115_200,
+            uart_baudrate: 9_600,
             canbus1_bitrate: 250_000,
-            canbus1_termination: false,
+            canbus1_termination: true,
             j1939_address: 0x25,
             j1939_name: [0; 8],
             j1939_source_address: None,
