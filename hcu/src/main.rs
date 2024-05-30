@@ -550,13 +550,13 @@ mod app {
                         }
                     }
                 }
-                PGN::ProprietarilyConfigurableMessage2 => {
-                    if frame.pdu() == [0x01; 8] {
-                        ctx.shared
-                            .config
-                            .lock(|config| config.is_factory_reset = true);
-                    }
-                }
+                // PGN::ProprietarilyConfigurableMessage2 => {
+                //     if frame.pdu() == [0x01; 8] {
+                //         ctx.shared
+                //             .config
+                //             .lock(|config| config.is_factory_reset = true);
+                //     }
+                // }
                 PGN::ProprietarilyConfigurableMessage3 => {
                     if frame.pdu()[0] == b'Z' && frame.pdu()[1] == b'C' {
                         if frame.pdu()[3] & 0b11 == 0 {

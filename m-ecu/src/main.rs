@@ -307,21 +307,19 @@ mod app {
         if state == vecraft::state::State::Nominal {
             // TODO: Schedule via idle task
             if config.is_dirty {
-                let config = ctx.shared.config.lock(|config| *config);
-
-                vecraft::put_config(ctx.local.eeprom, &config);
-
-                #[rustfmt::skip]
-                ctx.shared.config.lock(|config| config.is_dirty = false);
+                ctx.shared.config.lock(|config| {
+                    vecraft::put_config(ctx.local.eeprom, config);
+                    config.is_dirty = false;
+                });
             }
-            if config.is_factory_reset {
-                let default_config = vecraft::reset_config(ctx.local.eeprom);
+            // if config.is_factory_reset {
+            //     let default_config = vecraft::reset_config(ctx.local.eeprom);
 
-                ctx.shared.config.lock(|config| *config = default_config);
+            //     ctx.shared.config.lock(|config| *config = default_config);
 
-                #[rustfmt::skip]
-                ctx.shared.config.lock(|config| config.is_factory_reset = false);
-            }
+            //     #[rustfmt::skip]
+            //     ctx.shared.config.lock(|config| config.is_factory_reset = false);
+            // }
         }
 
         ctx.local
@@ -450,13 +448,13 @@ mod app {
                         }
                     }
                 }
-                PGN::ProprietarilyConfigurableMessage2 => {
-                    if frame.pdu() == [0x01; 8] {
-                        ctx.shared
-                            .config
-                            .lock(|config| config.is_factory_reset = true);
-                    }
-                }
+                // PGN::ProprietarilyConfigurableMessage2 => {
+                //     if frame.pdu() == [0x01; 8] {
+                //         ctx.shared
+                //             .config
+                //             .lock(|config| config.is_factory_reset = true);
+                //     }
+                // }
                 PGN::ElectronicEngineController1 => {
                     // TODO: Needs tuning, see #15
                     if config.ecu_mode() == vecraft::EcuApplication::PumpControl {
