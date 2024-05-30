@@ -146,8 +146,6 @@ mod app {
             vecraft::console::Console::new(usart2)
         };
 
-        assert!(config.canbus1_bitrate == 250_000 || config.canbus1_bitrate == 500_000);
-
         let mut canbus1 = {
             let rx = gpiod.pd0.into_alternate().speed(gpio::Speed::VeryHigh);
             let tx = gpiod.pd1.into_alternate().speed(gpio::Speed::VeryHigh);

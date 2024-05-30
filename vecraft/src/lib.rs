@@ -89,7 +89,17 @@ pub fn get_config<T: WriteRead<Error = I2cError> + Write<Error = I2cError>>(
     let mut vecraft_config = [0; VECRAFT_CONFIG_SIZE];
     eeprom.read_page(VECRAFT_CONFIG_PAGE, &mut vecraft_config);
 
-    VecraftConfig::try_from(&vecraft_config[..])
+    let config = VecraftConfig::try_from(&vecraft_config[..])?;
+
+    if config.ecu_mode() == EcuApplication::Unknown {
+        return Err(ConfigError::InvalidEcuMode);
+    }
+
+    if config.canbus1_bitrate != 250_000 && config.canbus1_bitrate != 500_000 {
+        return Err(ConfigError::InvalidCanbusBitrate);
+    }
+
+    Ok(config)
 }
 
 pub fn put_config<T: WriteRead<Error = I2cError> + Write<Error = I2cError>>(

@@ -49,6 +49,7 @@ impl VecraftConfig {
     pub fn safe_mode() -> Self {
         Self {
             ecu_mode: crate::EcuApplication::SafeMode.into(),
+            uart_baudrate: 9_600,
             ..Default::default()
         }
     }
@@ -98,7 +99,7 @@ impl Default for VecraftConfig {
             ecu_mode: crate::EcuApplication::Unknown.into(),
             serial_number: [0; 8],
             uart_selected: 0x2,
-            uart_baudrate: 9_600,
+            uart_baudrate: 115_200,
             canbus1_bitrate: 250_000,
             canbus1_termination: true,
             j1939_address: 0x25,
@@ -112,6 +113,10 @@ impl Default for VecraftConfig {
 pub enum ConfigError {
     InvalidHeader,
     InvalidVersion,
+    InvalidEcuMode,
+    InvalidUartSelection,
+    InvalidUartBaudrate,
+    InvalidCanbusBitrate,
 }
 
 // TODO: Replace with an actual error type
