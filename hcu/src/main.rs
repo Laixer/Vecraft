@@ -125,7 +125,8 @@ mod app {
             vecraft::eeprom::Eeprom::new(i2c1)
         };
 
-        let config = vecraft::get_config(&mut eeprom);
+        let config =
+            vecraft::get_config(&mut eeprom).unwrap_or(vecraft::VecraftConfig::safe_mode());
 
         let mut console = {
             let rx = gpiod.pd5.into_alternate();
@@ -179,7 +180,11 @@ mod app {
         // From this point on, setup hardware and peripherals for this specific application
         //
 
-        assert!([vecraft::EcuApplication::HydraulicControl].contains(&config.ecu_mode()));
+        assert!([
+            vecraft::EcuApplication::HydraulicControl,
+            vecraft::EcuApplication::SafeMode
+        ]
+        .contains(&config.ecu_mode()));
 
         let (_, (pwm_high1, pwm_low1, pwm_high2, pwm_low2)) = ctx
             .device

@@ -142,7 +142,8 @@ mod app {
             vecraft::eeprom::Eeprom::new(i2c1)
         };
 
-        let config = vecraft::get_config(&mut eeprom);
+        let config =
+            vecraft::get_config(&mut eeprom).unwrap_or(vecraft::VecraftConfig::safe_mode());
 
         let mut console = {
             let rx = gpiod.pd5.into_alternate();
@@ -198,7 +199,8 @@ mod app {
 
         assert!([
             vecraft::EcuApplication::StarterControl,
-            vecraft::EcuApplication::PumpControl
+            vecraft::EcuApplication::PumpControl,
+            vecraft::EcuApplication::SafeMode
         ]
         .contains(&config.ecu_mode()));
 

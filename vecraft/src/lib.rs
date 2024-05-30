@@ -30,6 +30,7 @@ pub enum EcuApplication {
     PumpControl,
     StarterControl,
     HydraulicControl,
+    SafeMode,
 }
 
 /// Converts a u8 value into an `EcuApplication` enum variant.
@@ -51,6 +52,7 @@ impl TryFrom<u8> for EcuApplication {
             0x10 => Ok(Self::PumpControl),
             0x11 => Ok(Self::StarterControl),
             0x15 => Ok(Self::HydraulicControl),
+            0xFF => Ok(Self::SafeMode),
             _ => Err(()),
         }
     }
@@ -73,6 +75,7 @@ impl From<EcuApplication> for u8 {
             EcuApplication::PumpControl => 0x10,
             EcuApplication::StarterControl => 0x11,
             EcuApplication::HydraulicControl => 0x15,
+            EcuApplication::SafeMode => 0xFF,
         }
     }
 }
@@ -82,15 +85,11 @@ use stm32h7xx_hal::i2c::Error as I2cError;
 
 pub fn get_config<T: WriteRead<Error = I2cError> + Write<Error = I2cError>>(
     eeprom: &mut eeprom::Eeprom<T>,
-) -> VecraftConfig {
+) -> Result<VecraftConfig, ConfigError> {
     let mut vecraft_config = [0; VECRAFT_CONFIG_SIZE];
     eeprom.read_page(VECRAFT_CONFIG_PAGE, &mut vecraft_config);
 
-    match VecraftConfig::try_from(&vecraft_config[..]) {
-        Err(ConfigError::InvalidHeader) => reset_config(eeprom),
-        Err(ConfigError::InvalidVersion) => panic!("Invalid config"),
-        Ok(config) => config,
-    }
+    VecraftConfig::try_from(&vecraft_config[..])
 }
 
 pub fn put_config<T: WriteRead<Error = I2cError> + Write<Error = I2cError>>(
