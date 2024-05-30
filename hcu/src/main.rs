@@ -494,31 +494,35 @@ mod app {
 
                     match pgn {
                         PGN::SoftwareIdentification => {
-                            let id = IdBuilder::from_pgn(PGN::SoftwareIdentification)
-                                .sa(config.j1939_address)
-                                .build();
+                            ctx.shared.canbus1.lock(|canbus1| {
+                                let id = IdBuilder::from_pgn(PGN::SoftwareIdentification)
+                                    .sa(config.j1939_address)
+                                    .build();
 
-                            let frame = FrameBuilder::new(id)
-                                .copy_from_slice(&[
-                                    0x01,
-                                    crate::PKG_VERSION_MAJOR.parse::<u8>().unwrap(),
-                                    crate::PKG_VERSION_MINOR.parse::<u8>().unwrap(),
-                                    crate::PKG_VERSION_PATCH.parse::<u8>().unwrap(),
-                                    FIELD_DELIMITER,
-                                ])
-                                .build();
+                                let frame = FrameBuilder::new(id)
+                                    .copy_from_slice(&[
+                                        0x01,
+                                        crate::PKG_VERSION_MAJOR.parse::<u8>().unwrap(),
+                                        crate::PKG_VERSION_MINOR.parse::<u8>().unwrap(),
+                                        crate::PKG_VERSION_PATCH.parse::<u8>().unwrap(),
+                                        FIELD_DELIMITER,
+                                    ])
+                                    .build();
 
-                            ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
+                                canbus1.send(frame)
+                            });
                         }
                         PGN::ComponentIdentification => {
-                            let id = IdBuilder::from_pgn(PGN::ComponentIdentification)
-                                .sa(config.j1939_address)
-                                .build();
+                            ctx.shared.canbus1.lock(|canbus1| {
+                                let id = IdBuilder::from_pgn(PGN::ComponentIdentification)
+                                    .sa(config.j1939_address)
+                                    .build();
 
-                            // TODO: Get the serial number from the EEPROM
-                            let frame = FrameBuilder::new(id).build();
+                                // TODO: Get the serial number from the EEPROM
+                                let frame = FrameBuilder::new(id).build();
 
-                            ctx.shared.canbus1.lock(|canbus1| canbus1.send(frame));
+                                canbus1.send(frame)
+                            });
                         }
                         PGN::AddressClaimed => {
                             ctx.shared.canbus1.lock(|canbus1| {

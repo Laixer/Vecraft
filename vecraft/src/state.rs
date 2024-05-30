@@ -11,6 +11,11 @@ pub enum State {
 }
 
 impl State {
+    /// Converts the state to a byte value.
+    ///
+    /// # Returns
+    ///
+    /// The byte value corresponding to the state.
     pub fn as_byte(&self) -> u8 {
         match self {
             State::Nominal => 0x14,
@@ -22,6 +27,11 @@ impl State {
         }
     }
 
+    /// Converts the state to an LED color.
+    ///
+    /// # Returns
+    ///
+    /// The LED color corresponding to the state.
     pub fn as_led(&self) -> crate::led::Color {
         match self {
             State::Nominal => crate::led::GREEN,
@@ -100,14 +110,14 @@ impl System {
 
     /// Get the current state of the system.
     pub fn state(&self) -> State {
-        if self.ident {
-            State::Ident
-        } else if self.bus_error {
+        if self.bus_error {
             State::FaultyBusError
         } else if self.configuration_error {
             State::ConfigurationError
         } else if self.application_specific {
             State::ApplicationSpecific
+        } else if self.ident {
+            State::Ident
         } else {
             State::Nominal
         }
