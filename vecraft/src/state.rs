@@ -11,6 +11,11 @@ pub enum State {
 }
 
 impl State {
+    /// Check if the state is nominal.
+    pub fn is_nominal(&self) -> bool {
+        matches!(self, State::Nominal)
+    }
+
     /// Converts the state to a byte value.
     ///
     /// # Returns

@@ -382,7 +382,7 @@ mod app {
             ctx.shared.gate_lock.lock(|gate_lock| gate_lock.lock());
         }
 
-        if state == vecraft::state::State::Nominal {
+        if state.is_nominal() {
             // TODO: Schedule via idle task
             if config.is_dirty {
                 ctx.shared.config.lock(|config| {
@@ -574,7 +574,7 @@ mod app {
                             });
                         } else if frame.pdu()[3] & 0b11 == 1 {
                             let state = ctx.shared.state.lock(|state| state.state());
-                            if state == vecraft::state::State::Nominal {
+                            if state.is_nominal() {
                                 ctx.shared.gate_lock.lock(|gate_lock| gate_lock.unlock());
                                 ctx.local.gate_control.reset();
 
