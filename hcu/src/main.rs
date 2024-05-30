@@ -125,6 +125,17 @@ mod app {
             vecraft::eeprom::Eeprom::new(i2c1)
         };
 
+        // let mut init_config = vecraft::VecraftConfig::new(
+        //     vecraft::EcuApplication::HydraulicControl.into(),
+        //     [0; 8],
+        //     [0; 8],
+        // );
+        // init_config.uart_baudrate = 115_200;
+        // init_config.canbus1_termination = false;
+        // init_config.j1939_address = 0x4a;
+
+        // vecraft::put_config(&mut eeprom, &init_config);
+
         let config =
             vecraft::get_config(&mut eeprom).unwrap_or(vecraft::VecraftConfig::safe_mode());
 
@@ -310,6 +321,9 @@ mod app {
             writeln!(console).ok();
             writeln!(console, "    Firmware : {}", crate::PKG_NAME).ok();
             writeln!(console, "    Version  : {}", crate::PKG_VERSION).ok();
+            writeln!(console, "    Debug    : {}", cfg!(debug_assertions)).ok();
+            writeln!(console).ok();
+            writeln!(console, "    ECU Mode : 0x{:X?}", config.ecu_mode()).ok();
             writeln!(console, "    Address  : 0x{:X?}", config.j1939_address).ok();
             writeln!(console).ok();
             writeln!(console, "  Laixer Equipment B.V.").ok();
@@ -373,21 +387,19 @@ mod app {
         if state == vecraft::state::State::Nominal {
             // TODO: Schedule via idle task
             if config.is_dirty {
-                let config = ctx.shared.config.lock(|config| *config);
-
-                vecraft::put_config(ctx.local.eeprom, &config);
-
-                #[rustfmt::skip]
-                ctx.shared.config.lock(|config| config.is_dirty = false);
+                ctx.shared.config.lock(|config| {
+                    vecraft::put_config(ctx.local.eeprom, config);
+                    config.is_dirty = false;
+                });
             }
-            if config.is_factory_reset {
-                let default_config = vecraft::reset_config(ctx.local.eeprom);
+            // if config.is_factory_reset {
+            //     let default_config = vecraft::reset_config(ctx.local.eeprom);
 
-                ctx.shared.config.lock(|config| *config = default_config);
+            //     ctx.shared.config.lock(|config| *config = default_config);
 
-                #[rustfmt::skip]
-                ctx.shared.config.lock(|config| config.is_factory_reset = false);
-            }
+            //     #[rustfmt::skip]
+            //     ctx.shared.config.lock(|config| config.is_factory_reset = false);
+            // }
         }
 
         //
