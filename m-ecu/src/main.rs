@@ -479,7 +479,8 @@ mod app {
                         let message =
                             crate::protocol::VolvoSpeedRequestMessage::from_pdu(frame.pdu());
 
-                        if message.engine_mode == Some(crate::protocol::EngineMode::Starting) {
+                        if message.engine_mode == Some(crate::protocol::VolvoEngineState::Starting)
+                        {
                             if !*ctx.local.is_starting {
                                 *ctx.local.is_starting = true;
                                 ctx.shared.in1.lock(|in1| in1.set_high());

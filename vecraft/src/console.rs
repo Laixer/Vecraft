@@ -11,6 +11,7 @@ impl Console {
     }
 }
 
+// TODO: This is part of the `embedded-hal` trait, so we should probably implement it
 impl fmt::Write for Console {
     fn write_str(&mut self, s: &str) -> fmt::Result {
         s.as_bytes()

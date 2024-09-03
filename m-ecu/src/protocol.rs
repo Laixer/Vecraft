@@ -34,6 +34,7 @@ impl VolvoSpeedRequestMessage {
         }
     }
 
+    #[allow(dead_code)]
     pub fn to_pdu(&self) -> [u8; 8] {
         [
             0x00,
@@ -50,6 +51,7 @@ impl VolvoSpeedRequestMessage {
 
 ///////////////////////////////
 
+#[allow(dead_code)]
 pub struct VolvoD7E {
     /// Destination address.
     destination_address: u8,
@@ -58,6 +60,7 @@ pub struct VolvoD7E {
     // ems: EngineManagementSystem,
 }
 
+#[allow(dead_code)]
 impl VolvoD7E {
     /// Construct a new engine management system.
     pub fn new(da: u8, sa: u8) -> Self {
