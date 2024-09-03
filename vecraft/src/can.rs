@@ -69,8 +69,6 @@ impl<I: fdcan::Instance, P: stm32h7xx_hal::hal::digital::v2::OutputPin> CanBuild
     pub fn new(mut fdcan: fdcan::FdCan<I, fdcan::ConfigMode>, mut term: P) -> Self {
         term.set_low().ok();
 
-        fdcan.set_protocol_exception_handling(false);
-
         fdcan.set_global_filter(
             GlobalFilter::default()
                 .set_handle_standard_frames(NonMatchingFilter::Reject)
