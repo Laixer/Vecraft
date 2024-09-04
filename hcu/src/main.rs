@@ -355,7 +355,7 @@ mod app {
         )
     }
 
-    #[task(priority = 2, shared = [config, state, canbus1, gate_lock, last_recv_time], local = [led, watchdog, eeprom, canbus1_transceiver_fault])]
+    #[task(priority = 2, shared = [config, state, canbus1, gate_lock, last_recv_time, console], local = [led, watchdog, eeprom, canbus1_transceiver_fault])]
     fn firmware_state(mut ctx: firmware_state::Context) {
         let config = ctx.shared.config.lock(|config| *config);
         let is_bus_ok = ctx.shared.canbus1.lock(|canbus1| canbus1.is_bus_ok());
@@ -388,6 +388,13 @@ mod app {
         let is_locked = ctx.shared.gate_lock.lock(|gate_lock| gate_lock.is_locked());
         if !recv_within_time && !is_locked {
             ctx.shared.gate_lock.lock(|gate_lock| gate_lock.lock());
+
+            #[cfg(debug_assertions)]
+            ctx.shared.console.lock(|console| {
+                use core::fmt::Write;
+
+                writeln!(console, "Motion locked due to timeout").ok();
+            });
         }
 
         if state.is_nominal() {
@@ -553,8 +560,23 @@ mod app {
                         if frame.pdu()[2] & 0b1 == 1 {
                             ctx.shared.gate_lock.lock(|gate_lock| gate_lock.lock());
                             ctx.shared.state.lock(|state| state.set_ident(true));
+
+                            #[cfg(debug_assertions)]
+                            ctx.shared.console.lock(|console| {
+                                use core::fmt::Write;
+
+                                writeln!(console, "Ident set by ident command").ok();
+                                writeln!(console, "Motion locked by ident command").ok();
+                            });
                         } else if frame.pdu()[2] & 0b1 == 0 {
                             ctx.shared.state.lock(|state| state.set_ident(false));
+
+                            #[cfg(debug_assertions)]
+                            ctx.shared.console.lock(|console| {
+                                use core::fmt::Write;
+
+                                writeln!(console, "Ident unset set by ident command").ok();
+                            });
                         }
 
                         if frame.pdu()[3] == 0x69 {
@@ -572,32 +594,43 @@ mod app {
                 PGN::ProprietarilyConfigurableMessage3 => {
                     if frame.pdu()[0] == b'Z' && frame.pdu()[1] == b'C' {
                         if frame.pdu()[3] & 0b11 == 0 {
-                            ctx.shared.gate_lock.lock(|gate_lock| gate_lock.lock());
+                            let is_locked =
+                                ctx.shared.gate_lock.lock(|gate_lock| gate_lock.is_locked());
 
-                            #[cfg(debug_assertions)]
-                            ctx.shared.console.lock(|console| {
-                                use core::fmt::Write;
+                            if !is_locked {
+                                ctx.shared.gate_lock.lock(|gate_lock| gate_lock.lock());
 
-                                writeln!(console, "Motion locked").ok();
-                            });
+                                #[cfg(debug_assertions)]
+                                ctx.shared.console.lock(|console| {
+                                    use core::fmt::Write;
+
+                                    writeln!(console, "Motion locked by config command").ok();
+                                });
+                            }
                         } else if frame.pdu()[3] & 0b11 == 1 {
                             let state = ctx.shared.state.lock(|state| state.state());
+
                             if state.is_nominal() {
-                                ctx.shared.gate_lock.lock(|gate_lock| gate_lock.unlock());
-                                ctx.local.gate_control.reset();
+                                let is_locked =
+                                    ctx.shared.gate_lock.lock(|gate_lock| gate_lock.is_locked());
+
+                                if is_locked {
+                                    ctx.local.gate_control.reset();
+                                    ctx.shared.gate_lock.lock(|gate_lock| gate_lock.unlock());
+
+                                    #[cfg(debug_assertions)]
+                                    ctx.shared.console.lock(|console| {
+                                        use core::fmt::Write;
+
+                                        writeln!(console, "Motion unlocked by config command").ok();
+                                    });
+                                }
 
                                 let timestamp =
                                     monotonics::now().duration_since_epoch().to_millis();
                                 ctx.shared
                                     .last_recv_time
                                     .lock(|last_recv_time| *last_recv_time = Some(timestamp));
-
-                                #[cfg(debug_assertions)]
-                                ctx.shared.console.lock(|console| {
-                                    use core::fmt::Write;
-
-                                    writeln!(console, "Motion unlocked").ok();
-                                });
                             }
                         }
 
@@ -683,9 +716,6 @@ mod app {
                             .gate7
                             .set_value(valve_value(gate_value));
                     }
-                }
-                PGN::ProprietaryB(65_292) => {
-                    //
                 }
                 _ => {}
             }
