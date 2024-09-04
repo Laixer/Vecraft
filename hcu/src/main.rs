@@ -63,6 +63,7 @@ mod app {
     #[local]
     struct LocalResources {
         led: vecraft::RGBLed,
+        canbus1_transceiver_fault: stm32h7xx_hal::gpio::gpiod::PD2<stm32h7xx_hal::gpio::Input>,
         gate_control: vecraft::lsgc::GateControl,
         watchdog: SystemWindowWatchdog,
         eeprom: vecraft::eeprom::Eeprom<stm32h7xx_hal::i2c::I2c<stm32h7xx_hal::pac::I2C1>>,
@@ -189,6 +190,8 @@ mod app {
 
             builder.build()
         };
+
+        let canbus1_transceiver_fault = gpiod.pd2.into_floating_input();
 
         //
         // From this point on, setup hardware and peripherals for this specific application
@@ -343,6 +346,7 @@ mod app {
             },
             LocalResources {
                 led,
+                canbus1_transceiver_fault,
                 gate_control,
                 watchdog,
                 eeprom,
@@ -351,13 +355,14 @@ mod app {
         )
     }
 
-    #[task(priority = 2, shared = [config, state, canbus1, gate_lock, last_recv_time], local = [led, watchdog, eeprom])]
+    #[task(priority = 2, shared = [config, state, canbus1, gate_lock, last_recv_time], local = [led, watchdog, eeprom, canbus1_transceiver_fault])]
     fn firmware_state(mut ctx: firmware_state::Context) {
         let config = ctx.shared.config.lock(|config| *config);
         let is_bus_ok = ctx.shared.canbus1.lock(|canbus1| canbus1.is_bus_ok());
+        let is_transceiver_fault = ctx.local.canbus1_transceiver_fault.is_high();
 
         let state = ctx.shared.state.lock(|state| {
-            if is_bus_ok {
+            if is_bus_ok || is_transceiver_fault {
                 state.set_bus_error(false);
             } else {
                 state.set_bus_error(true);
