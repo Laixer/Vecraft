@@ -128,7 +128,8 @@ mod app {
 
         // let mut init_config = vecraft::VecraftConfig::new(
         //     vecraft::EcuApplication::HydraulicControl.into(),
-        //     [0; 8],
+        //     100,
+        //     2962100001,
         //     [0; 8],
         // );
         // init_config.uart_baudrate = 115_200;
@@ -319,11 +320,12 @@ mod app {
             writeln!(console).ok();
             writeln!(console, "    Firmware : {}", crate::PKG_NAME).ok();
             writeln!(console, "    Version  : {}", crate::PKG_VERSION).ok();
+            writeln!(console, "    Revision : {}", config.hardware_revision()).ok();
+            writeln!(console, "    Serial   : {}", config.serial_number()).ok();
             writeln!(console, "    Debug    : {}", cfg!(debug_assertions)).ok();
             writeln!(console).ok();
             writeln!(console, "    ECU Mode : {:X?}", config.ecu_mode()).ok();
             writeln!(console, "    Address  : 0x{:X?}", config.j1939_address).ok();
-            writeln!(console, "    Serial   : {:X?}", config.serial_number()).ok();
             writeln!(console).ok();
             writeln!(console, "  Laixer Equipment B.V.").ok();
             writeln!(console, "   Copyright (C) 2024").ok();

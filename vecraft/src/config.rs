@@ -24,7 +24,8 @@ const VECRAFT_CONFIG_VERSION: u8 = 0x1;
 #[derive(Copy, Clone, Debug)]
 pub struct VecraftConfig {
     ecu_mode: u8,
-    serial_number: [u8; 8],
+    hardware_revision: u32,
+    serial_number: u32,
     pub uart_selected: u8,
     pub uart_baudrate: u32,
     pub canbus1_bitrate: u32,
@@ -37,9 +38,15 @@ pub struct VecraftConfig {
 }
 
 impl VecraftConfig {
-    pub fn new(ecu_mode: u8, serial_number: [u8; 8], j1939_name: [u8; 8]) -> Self {
+    pub fn new(
+        ecu_mode: u8,
+        hardware_revision: u32,
+        serial_number: u32,
+        j1939_name: [u8; 8],
+    ) -> Self {
         Self {
             ecu_mode,
+            hardware_revision,
             serial_number,
             j1939_name,
             ..Default::default()
@@ -61,11 +68,14 @@ impl VecraftConfig {
             .unwrap_or(crate::EcuApplication::Unknown)
     }
 
-    pub fn serial_number(&self) -> (u32, u32) {
-        (
-            u32::from_le_bytes(self.serial_number[0..4].try_into().unwrap_or([0; 4])),
-            u32::from_le_bytes(self.serial_number[4..8].try_into().unwrap_or([0; 4])),
-        )
+    #[inline]
+    pub fn hardware_revision(&self) -> u32 {
+        self.hardware_revision
+    }
+
+    #[inline]
+    pub fn serial_number(&self) -> u32 {
+        self.serial_number
     }
 
     pub fn j1939_name(&self) -> j1939::Name {
@@ -78,7 +88,8 @@ impl VecraftConfig {
         bytes[0..3].copy_from_slice(&VECRAFT_CONFIG_HEADER);
         bytes[3] = VECRAFT_CONFIG_VERSION;
         bytes[4] = self.ecu_mode;
-        bytes[8..16].copy_from_slice(&self.serial_number);
+        bytes[8..12].copy_from_slice(&self.hardware_revision.to_le_bytes());
+        bytes[12..16].copy_from_slice(&self.serial_number.to_le_bytes());
         bytes[32] = self.uart_selected;
         bytes[33..37].copy_from_slice(&self.uart_baudrate.to_le_bytes());
         bytes[40..44].copy_from_slice(&self.canbus1_bitrate.to_le_bytes());
@@ -97,7 +108,8 @@ impl Default for VecraftConfig {
             is_dirty: false,
             is_factory_reset: false,
             ecu_mode: crate::EcuApplication::Unknown.into(),
-            serial_number: [0; 8],
+            hardware_revision: 0,
+            serial_number: 0,
             uart_selected: 0x2,
             uart_baudrate: 115_200,
             canbus1_bitrate: 250_000,
@@ -135,7 +147,8 @@ impl TryFrom<&[u8]> for VecraftConfig {
             is_dirty: false,
             is_factory_reset: false,
             ecu_mode: value[4],
-            serial_number: value[8..16].try_into().unwrap_or([0; 8]),
+            hardware_revision: u32::from_le_bytes(value[8..12].try_into().unwrap_or([0; 4])),
+            serial_number: u32::from_le_bytes(value[12..16].try_into().unwrap_or([0; 4])),
             uart_selected: value[32],
             uart_baudrate: u32::from_le_bytes(value[33..37].try_into().unwrap_or([0; 4])),
             canbus1_bitrate: u32::from_le_bytes(value[40..44].try_into().unwrap_or([0; 4])),
