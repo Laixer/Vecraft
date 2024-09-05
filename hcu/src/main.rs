@@ -300,6 +300,7 @@ mod app {
         //
 
         firmware_state::spawn().ok();
+        #[cfg(debug_assertions)]
         firmware_state_log::spawn_after(500.millis().into()).ok();
         // commit_config::spawn_after(1.minutes().into()).ok();
 
@@ -456,7 +457,7 @@ mod app {
         firmware_state::spawn_after(50.millis().into()).expect("Fail to schedule");
     }
 
-    #[task(shared = [state, canbus1, gate_lock, console], local = [])]
+    #[task(shared = [state, canbus1, gate_lock, console])]
     fn firmware_state_log(mut ctx: firmware_state_log::Context) {
         let is_bus_ok = ctx.shared.canbus1.lock(|canbus1| canbus1.is_bus_ok());
         let state = ctx.shared.state.lock(|state| state.state());
@@ -464,7 +465,6 @@ mod app {
         let uptime = monotonics::now().duration_since_epoch();
         let timestamp = uptime.to_secs() as u32;
 
-        #[cfg(debug_assertions)]
         ctx.shared.console.lock(|console| {
             use core::fmt::Write;
 
