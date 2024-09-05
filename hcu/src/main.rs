@@ -300,6 +300,7 @@ mod app {
         //
 
         firmware_state::spawn().ok();
+        firmware_state_log::spawn_after(500.millis().into()).ok();
         // commit_config::spawn_after(1.minutes().into()).ok();
 
         watchdog.start(75.millis());
@@ -453,6 +454,29 @@ mod app {
         ctx.local.watchdog.feed();
 
         firmware_state::spawn_after(50.millis().into()).expect("Fail to schedule");
+    }
+
+    #[task(shared = [state, canbus1, gate_lock, console], local = [])]
+    fn firmware_state_log(mut ctx: firmware_state_log::Context) {
+        let is_bus_ok = ctx.shared.canbus1.lock(|canbus1| canbus1.is_bus_ok());
+        let state = ctx.shared.state.lock(|state| state.state());
+        let is_locked = ctx.shared.gate_lock.lock(|gate_lock| gate_lock.is_locked());
+        let uptime = monotonics::now().duration_since_epoch();
+        let timestamp = uptime.to_secs() as u32;
+
+        #[cfg(debug_assertions)]
+        ctx.shared.console.lock(|console| {
+            use core::fmt::Write;
+
+            writeln!(
+                console,
+                "Timestamp: {} | Bus OK: {} | State: {:?} | Motion Lock: {}",
+                timestamp, is_locked, state, is_bus_ok,
+            )
+            .ok();
+        });
+
+        firmware_state_log::spawn_after(1.secs().into()).expect("Fail to schedule");
     }
 
     #[task(binds = WWDG1, shared = [console, gate_lock])]
