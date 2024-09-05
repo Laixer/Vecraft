@@ -357,7 +357,7 @@ mod app {
         )
     }
 
-    #[task(priority = 2, shared = [config, state, canbus1, gate_lock, last_recv_time, console], local = [led, watchdog, eeprom, canbus1_transceiver_fault])]
+    #[task(shared = [config, state, canbus1, gate_lock, last_recv_time, console], local = [led, watchdog, eeprom, canbus1_transceiver_fault])]
     fn firmware_state(mut ctx: firmware_state::Context) {
         let config = ctx.shared.config.lock(|config| *config);
         let is_bus_ok = ctx.shared.canbus1.lock(|canbus1| canbus1.is_bus_ok());
