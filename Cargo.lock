@@ -150,9 +150,9 @@ checksum = "a21dea9854beb860f3062d10228ce9b976da520a73474aed3171ec276bc0c032"
 
 [[package]]
 name = "fdcan"
-version = "0.2.0"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "553fb8420a8ca433ed032a3f284deeb95c12e4d3d25cdc15196669a27b2ae34b"
+checksum = "a745a7ef1532cc436619631a102c1d2f71e8fd4e82f1ee48c85eaa73c0487e81"
 dependencies = [
  "bitflags",
  "nb 1.1.0",
@@ -422,9 +422,9 @@ dependencies = [
 
 [[package]]
 name = "stm32h7xx-hal"
-version = "0.15.1"
+version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e08bcfbdbe4458133f2fd55994a5c4f1b4bf28084f0218e93cdbc19d7c70219f"
+checksum = "3bd869329be25440b24e2b3583a1c016151b4a54bc36d96d82af7fcd9d010b98"
 dependencies = [
  "bare-metal 1.0.0",
  "cast",

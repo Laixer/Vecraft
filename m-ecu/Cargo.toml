@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 cortex-m-rtic = { version = "1.1.4" }
-stm32h7xx-hal = { version = "0.15.1", features = ["stm32h743v", "rt", "can"] }
+stm32h7xx-hal = { version = "0.16", features = ["stm32h743v", "rt", "can"] }
 vecraft = { version = "0.2.0", path = "../vecraft" }
 
 [[bin]]
