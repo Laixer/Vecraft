@@ -129,8 +129,8 @@ mod app {
 
         // let mut init_config = vecraft::VecraftConfig::new(
         //     vecraft::EcuApplication::HydraulicControl.into(),
-        //     100,
-        //     2962100001,
+        //     101,
+        //     2962100003,
         //     [0; 8],
         // );
         // init_config.uart_baudrate = 115_200;
